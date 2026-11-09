@@ -41,6 +41,36 @@ ${bodyIndented}
 `;
 
 fs.writeFileSync(path.join(pluginDir, "client.js"), client);
+
+// Repo-root manifest: `dsh plugin add github:owner/repo` resolves the package
+// at the repository root (pnpm's git specs have no subdirectory form), so mirror
+// plugin/package.json there with every path prefixed by ./plugin/. Generated
+// here so the two manifests can never drift apart.
+const rootPkg = {
+	name: pkg.name,
+	version: pkg.version,
+	private: pkg.private,
+	type: pkg.type,
+	description: pkg.description,
+	main: "./plugin/index.js",
+	exports: {
+		".": "./plugin/index.js",
+		"./client": "./plugin/client.js",
+		"./locale/*.json": "./plugin/locale/*.json",
+		"./icon": "./plugin/icon.svg",
+		"./package.json": "./package.json"
+	},
+	files: ["plugin", "README.md", "docs/API.md"],
+	dsh: {
+		bundle: { patch: "./plugin/" + String(pkg.dsh.bundle.patch).replace(/^\.\//, "") },
+		client: pkg.dsh.client
+	},
+	peerDependencies: pkg.peerDependencies,
+	license: pkg.license
+};
+const rootManifest = JSON.stringify(rootPkg, null, 2) + "\n";
+fs.writeFileSync(path.resolve(here, "..", "package.json"), rootManifest);
+
 console.log(
   "client.js written:",
   Buffer.byteLength(client),
@@ -49,5 +79,10 @@ console.log(
   "css:",
   css.length,
   "body:",
-  body.length
+  body.length,
+  "\nroot package.json written:",
+  Buffer.byteLength(rootManifest),
+  "bytes;",
+  rootPkg.name,
+  rootPkg.version
 );
