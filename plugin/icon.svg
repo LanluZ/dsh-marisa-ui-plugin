@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="lg-body" x1="10" y1="8" x2="54" y2="58" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#67E8F9" stop-opacity="0.95"/>
+      <stop offset="0.5" stop-color="#818CF8" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#C084FC" stop-opacity="0.9"/>
+    </linearGradient>
+    <linearGradient id="lg-rim" x1="12" y1="10" x2="52" y2="54" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.9"/>
+      <stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0.25"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0.55"/>
+    </linearGradient>
+    <radialGradient id="lg-glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(22 20) rotate(48) scale(30)">
+      <stop stop-color="#FFFFFF" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect x="4" y="4" width="56" height="56" rx="18" fill="url(#lg-body)" fill-opacity="0.28"/>
+  <rect x="4.75" y="4.75" width="54.5" height="54.5" rx="17.25" stroke="url(#lg-rim)" stroke-width="1.5"/>
+  <rect x="9" y="9" width="46" height="46" rx="14" fill="url(#lg-body)" fill-opacity="0.35"/>
+  <circle cx="24" cy="22" r="13" fill="url(#lg-glow)"/>
+  <path d="M32 18C32 18 42 30.2 42 38C42 44.1 37.5 48 32 48C26.5 48 22 44.1 22 38C22 30.2 32 18 32 18Z" fill="#FFFFFF" fill-opacity="0.55"/>
+  <path d="M32 18C32 18 42 30.2 42 38C42 44.1 37.5 48 32 48C26.5 48 22 44.1 22 38C22 30.2 32 18 32 18Z" stroke="#FFFFFF" stroke-opacity="0.75" stroke-width="1.2"/>
+</svg>

@@ -1,0 +1,710 @@
+/* =========================================================================
+   DSH Marisa UI — theme layer (performance edition)
+   -------------------------------------------------------------------------
+   Runtime budget rules:
+     · no backdrop-filter / filter / mix-blend-mode anywhere;
+     · no CSS animations, no pointer-driven JS, no extra DOM layers;
+     · the aurora is one static paint on the document canvas (html), so it is
+       cached by the compositor and never repainted by scrolling or streaming;
+     · glass is expressed with layered gradients, rim light and a tinted fill,
+       not real-time blur. Large scrolling surfaces carry no clip layer.
+   Tunable layer: every decorative alpha / radius below is multiplied by one
+   of the `--lg-tune-*` gains (default 1 = the design baseline). The Settings
+   page writes those gains on <html>; because they are plain custom properties
+   the whole UI re-composites without any repaint scripting.
+   ========================================================================= */
+
+/* ------------------------------ backdrop ------------------------------- */
+html {
+  background-color: #05060e !important;
+  background-image:
+    radial-gradient(58vmax 58vmax at 12% 4%, rgba(34, 211, 238, calc(0.32 * var(--lg-tune-aurora))), transparent 70%),
+    radial-gradient(52vmax 52vmax at 84% 0%, rgba(59, 130, 246, calc(0.28 * var(--lg-tune-aurora))), transparent 70%),
+    radial-gradient(62vmax 62vmax at 90% 58%, rgba(139, 92, 246, calc(0.32 * var(--lg-tune-aurora))), transparent 72%),
+    radial-gradient(52vmax 52vmax at 6% 88%, rgba(236, 72, 153, calc(0.20 * var(--lg-tune-aurora))), transparent 72%),
+    radial-gradient(46vmax 46vmax at 68% 98%, rgba(251, 191, 36, calc(0.16 * var(--lg-tune-aurora))), transparent 74%),
+    radial-gradient(120% 100% at 50% 34%, rgba(2, 3, 8, 0) 40%, rgba(2, 3, 8, 0.55) 100%),
+    linear-gradient(160deg, #080a14 0%, #04050c 58%, #030409 100%);
+  background-repeat: no-repeat;
+}
+
+body {
+  background: transparent !important;
+}
+
+/* Wallpaper-glass reveal mode (experimental): the Settings page writes
+   `data-lg-reveal="on"` on <html> and the document canvas turns transparent,
+   so a host window that itself supports transparency or a system backdrop
+   (mica / acrylic) shows the desktop behind the glass panels. Without host
+   window support the window simply shows its flat window colour — see
+   docs/API.md §1.5. Panels keep their tuned fills; dial 玻璃不透明度 down to
+   let more of the desktop through. */
+html[data-lg-reveal="on"],
+html[data-lg-reveal="on"]:has(body:not([data-ds-dark-theme])) {
+  background: transparent !important;
+  /* The caption-button probe (windowsAppearance IPC) measures this token and
+     feeds setTitleBarOverlay — report transparent so the native button strip
+     rides the acrylic backdrop instead of painting an opaque block. */
+  --dsw-specific-sidebar-fill: #00000000;
+}
+
+/* ------------------------- interaction palette -------------------------
+   One light/dark pair per interaction colour, declared once on <html> and
+   consumed by every hover / border / placeholder rule below. The previous
+   revision hardcoded white overlays in the base (dark) rules, so the light
+   theme silently lost most hover and border feedback; centralising the
+   palette here makes that class of drift impossible. Every alpha rides a
+   `--lg-tune-*` gain so the Settings row scales whole layers at once. */
+html {
+  /* Tunable gains (written by the Settings row; 1 = design default). */
+  --lg-tune-aurora: 1;
+  --lg-tune-glass: 1;
+  --lg-tune-rim: 1;
+  --lg-tune-radius: 1;
+  --lg-tune-shadow: 1;
+  --lg-tune-focus: 1;
+
+  --lg-hover: rgba(255, 255, 255, calc(0.06 * var(--lg-tune-glass)));
+  --lg-hover-strong: rgba(255, 255, 255, calc(0.09 * var(--lg-tune-glass)));
+  --lg-rim: rgba(255, 255, 255, calc(0.14 * var(--lg-tune-rim)));
+  --lg-hairline: rgba(255, 255, 255, calc(0.055 * var(--lg-tune-rim)));
+  --lg-selected: rgba(124, 158, 255, calc(0.16 * var(--lg-tune-glass)));
+  --lg-badge-bg: rgba(255, 255, 255, calc(0.09 * var(--lg-tune-glass)));
+  --lg-placeholder: rgba(222, 230, 248, calc(0.55 * var(--lg-tune-glass)));
+  --lg-foot-scrim: rgba(8, 10, 18, calc(0.22 * var(--lg-tune-glass)));
+  --lg-focus-ring: rgba(103, 232, 249, calc(0.55 * var(--lg-tune-focus)));
+  --lg-quote-bar: rgba(129, 140, 248, calc(0.60 * var(--lg-tune-focus)));
+  /* Hairline rim around the whole window: the glass slab needs its edge
+     defined, especially in wallpaper-reveal mode. */
+  --lg-window-rim: rgba(255, 255, 255, calc(0.10 * var(--lg-tune-rim)));
+  /* RGB triple behind the titlebar fade; the opaque end samples the exact
+     caption-button colour via `--dsw-specific-sidebar-fill`. */
+  --lg-titlebar-rgb: 17 24 39;
+}
+
+html:has(body:not([data-ds-dark-theme])) {
+  --lg-hover: rgba(13, 28, 60, calc(0.07 * var(--lg-tune-glass)));
+  --lg-hover-strong: rgba(13, 28, 60, calc(0.10 * var(--lg-tune-glass)));
+  --lg-rim: rgba(30, 41, 89, calc(0.16 * var(--lg-tune-rim)));
+  --lg-hairline: rgba(30, 41, 89, calc(0.10 * var(--lg-tune-rim)));
+  --lg-selected: rgba(59, 111, 224, calc(0.14 * var(--lg-tune-glass)));
+  --lg-badge-bg: rgba(30, 41, 89, calc(0.08 * var(--lg-tune-glass)));
+  --lg-placeholder: rgba(52, 64, 88, calc(0.60 * var(--lg-tune-glass)));
+  --lg-foot-scrim: rgba(30, 41, 89, calc(0.08 * var(--lg-tune-glass)));
+  --lg-focus-ring: rgba(59, 111, 224, calc(0.55 * var(--lg-tune-focus)));
+  --lg-quote-bar: rgba(59, 111, 224, calc(0.55 * var(--lg-tune-focus)));
+  --lg-window-rim: rgba(30, 41, 89, calc(0.12 * var(--lg-tune-rim)));
+  --lg-titlebar-rgb: 238 242 251;
+}
+
+/* ---------------------------- app shell ------------------------------- */
+[class*="_frame"] {
+  background: transparent !important;
+  border: 0 !important;
+  /* one hairline specular ring around the whole window edge */
+  box-shadow: inset 0 0 0 1px var(--lg-window-rim) !important;
+}
+
+/* Windows titlebar strip: aurora glass on the left, fading into the exact
+   colour the native caption buttons sample (`--dsw-specific-sidebar-fill`) on
+   the right, so minimise / maximise / close sit on a matching surface instead
+   of a grey block floating on glass. One rule serves both schemes: the fade
+   colour comes from the palette triple, the opaque end from the token. */
+[data-windows-titlebar] [class*="_frame"]::before {
+  background:
+    linear-gradient(
+      90deg,
+      rgb(var(--lg-titlebar-rgb) / 0) 0%,
+      rgb(var(--lg-titlebar-rgb) / 0) calc(100% - 260px),
+      rgb(var(--lg-titlebar-rgb) / 0.55) calc(100% - 200px),
+      var(--dsw-specific-sidebar-fill) calc(100% - 150px),
+      var(--dsw-specific-sidebar-fill) 100%
+    ) !important;
+}
+
+/* Reveal mode: never paint the opaque caption-button block over a native
+   acrylic / mica backdrop (the welcome-window style overlay is fully
+   transparent there) — the strip keeps its readability band and ends in
+   transparency on both sides. */
+html[data-lg-reveal="on"] [data-windows-titlebar] [class*="_frame"]::before {
+  background:
+    linear-gradient(
+      90deg,
+      rgb(var(--lg-titlebar-rgb) / 0) 0%,
+      rgb(var(--lg-titlebar-rgb) / 0) calc(100% - 260px),
+      rgb(var(--lg-titlebar-rgb) / 0.55) calc(100% - 200px),
+      rgb(var(--lg-titlebar-rgb) / 0) calc(100% - 150px),
+      rgb(var(--lg-titlebar-rgb) / 0) 100%
+    ) !important;
+}
+
+/* Floating glass columns: the 8px gutter lives on the FRAME (grid gap +
+   padding), never on the columns. The sidebar root carries an inline width
+   equal to its whole grid track and its column clips overflow, so any
+   margin/width inset on the column chopped the right edge of the button area
+   and its text. Gap + padding inset the panels while every column keeps its
+   full track width, so nothing can be clipped. */
+[class*="_frame"]:has(> [class*="_sidebarCol"]) {
+  column-gap: 8px !important;
+  padding-left: 8px;
+  padding-right: 8px;
+  padding-bottom: 8px;
+}
+
+html[data-windows-titlebar] [class*="_frame"]:has(> [class*="_sidebarCol"]) {
+  padding-top: calc(var(--dsh-windows-titlebar-height) + 8px) !important;
+}
+
+/* Floating glass panels: the aurora gutter comes from the frame's grid gap and
+   padding (above), so each column keeps its full track width. No overflow
+   clipping on the scrolling column — tint and radius alone carry the shape. */
+[class*="_sidebarCol"],
+[class*="_centerCol"],
+[class*="_rightbarCol"],
+[class*="_rightCol"] {
+  border-radius: calc(20px * var(--lg-tune-radius)) !important;
+  border: 1px solid rgba(255, 255, 255, calc(0.13 * var(--lg-tune-rim))) !important;
+  background-color: rgba(9, 12, 22, calc(0.90 * var(--lg-tune-glass))) !important;
+  background-image: linear-gradient(155deg, rgba(255, 255, 255, calc(0.07 * var(--lg-tune-rim))) 0%, rgba(255, 255, 255, calc(0.01 * var(--lg-tune-rim))) 46%, rgba(255, 255, 255, calc(0.035 * var(--lg-tune-rim))) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, calc(0.22 * var(--lg-tune-rim))),
+    inset 1px 0 0 rgba(103, 232, 249, calc(0.06 * var(--lg-tune-rim))),
+    inset -1px 0 0 rgba(192, 132, 252, calc(0.08 * var(--lg-tune-rim))),
+    0 16px 40px -28px rgba(0, 0, 0, calc(0.85 * var(--lg-tune-shadow)));
+  position: relative;
+}
+
+[class*="_sidebarCol"] {
+  margin: 0 !important;
+}
+
+[class*="_centerCol"] {
+  margin: 0 !important;
+  background-color: rgba(8, 11, 20, calc(0.92 * var(--lg-tune-glass))) !important;
+  border-color: rgba(255, 255, 255, calc(0.14 * var(--lg-tune-rim))) !important;
+}
+
+/* inner surfaces stay transparent so the column tint is the only fill */
+[class*="_sidebarCol"] [class*="_root"],
+[class*="_centerCol"] [class*="_root"] {
+  background: transparent !important;
+}
+
+/* header strip */
+[class*="_header"]:not([class*="_sectionHeader"]) {
+  background: transparent !important;
+  border-bottom: 1px solid var(--lg-hairline) !important;
+}
+
+/* ----------------------------- sidebar -------------------------------- */
+[class*="_logoRow"] {
+  border-bottom: 1px solid var(--lg-hairline);
+}
+
+/* New-session button: exactly ONE glass surface. The theme stacks a mask and
+   content spans inside the button; flatten every descendant so the capsule
+   reads as a single pane. */
+button[class*="_newSession"] {
+  margin-left: 12px;
+  margin-right: 12px;
+  background: rgba(255, 255, 255, calc(0.065 * var(--lg-tune-glass))) !important;
+  background-image: none !important;
+  border: 1px solid var(--lg-rim) !important;
+  border-radius: calc(14px * var(--lg-tune-radius)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, calc(0.16 * var(--lg-tune-rim))),
+    0 6px 14px -12px rgba(0, 0, 0, calc(0.6 * var(--lg-tune-shadow))) !important;
+}
+
+button[class*="_newSession"]::before,
+button[class*="_newSession"]::after {
+  display: none !important;
+}
+
+button[class*="_newSession"] *,
+button[class*="_newSession"] *::before,
+button[class*="_newSession"] *::after {
+  background: transparent !important;
+  background-image: none !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+button[class*="_newSession"]:hover {
+  background: var(--lg-hover-strong) !important;
+}
+
+[class*="_panelRow"] {
+  border-radius: calc(12px * var(--lg-tune-radius));
+}
+
+[class*="_panelRow"]:hover {
+  background: var(--lg-hover) !important;
+}
+
+[class*="_iconButton"] {
+  border-radius: calc(10px * var(--lg-tune-radius));
+}
+
+[class*="_iconButton"]:hover {
+  background: var(--lg-hover-strong) !important;
+}
+
+[class*="_sectionHeader"] {
+  background: transparent !important;
+}
+
+[class*="_search"] {
+  border-radius: calc(10px * var(--lg-tune-radius));
+}
+
+[class*="_emptyState"] {
+  opacity: 0.72;
+}
+
+[class*="_footArea"] {
+  background: linear-gradient(0deg, var(--lg-foot-scrim) 0%, transparent 100%);
+  border-top: 1px solid var(--lg-hairline);
+}
+
+/* ----------------------------- composer ------------------------------- */
+[class*="_composerStack"] [class*="_card"],
+[class*="_composerSeat"] [class*="_card"] {
+  border-radius: calc(22px * var(--lg-tune-radius)) !important;
+  border: 1px solid rgba(255, 255, 255, calc(0.16 * var(--lg-tune-rim))) !important;
+  background-color: rgba(17, 21, 35, calc(0.86 * var(--lg-tune-glass))) !important;
+  background-image: linear-gradient(150deg, rgba(255, 255, 255, calc(0.11 * var(--lg-tune-rim))) 0%, rgba(255, 255, 255, calc(0.02 * var(--lg-tune-rim))) 46%, rgba(255, 255, 255, calc(0.05 * var(--lg-tune-rim))) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, calc(0.28 * var(--lg-tune-rim))),
+    inset 0 -1px 0 rgba(255, 255, 255, calc(0.04 * var(--lg-tune-rim))),
+    0 14px 36px -28px rgba(0, 0, 0, calc(0.9 * var(--lg-tune-shadow)));
+}
+
+[class*="_composerStack"] [class*="_card"]:focus-within {
+  border-color: rgba(160, 190, 255, calc(0.32 * var(--lg-tune-rim))) !important;
+}
+
+[class*="_composerStack"] [class*="_primary"],
+[class*="_composerSeat"] [class*="_primary"] {
+  border: 1px solid rgba(255, 255, 255, calc(0.30 * var(--lg-tune-rim))) !important;
+  background: linear-gradient(140deg, #67e8f9 0%, #818cf8 48%, #c084fc 100%) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, calc(0.45 * var(--lg-tune-rim))) !important;
+  color: #08101f !important;
+}
+
+[class*="_composerStack"] [class*="_primary"] svg,
+[class*="_composerSeat"] [class*="_primary"] svg {
+  color: #07101f !important;
+  fill: currentColor;
+}
+
+[class*="_composerStack"] [class*="_add"],
+[class*="_composerSeat"] [class*="_add"] {
+  border-radius: 50%;
+  background: var(--lg-hover-strong) !important;
+  border: 1px solid var(--lg-rim);
+}
+
+[class*="_workspace"],
+[class*="_seat"] {
+  border-radius: calc(12px * var(--lg-tune-radius)) !important;
+}
+
+[class*="_workspace"]:hover,
+[class*="_seat"]:not([class*="_composerSeat"]):hover {
+  background: var(--lg-hover) !important;
+}
+
+/* --------------------------- menus / dialogs --------------------------- */
+[data-menu-material],
+[role="menu"],
+[role="dialog"],
+[class*="_dialog"],
+[class*="_menuSurface"] {
+  border-radius: calc(16px * var(--lg-tune-radius));
+  border: 1px solid rgba(255, 255, 255, calc(0.14 * var(--lg-tune-rim))) !important;
+  background-color: rgba(15, 18, 30, calc(0.95 * var(--lg-tune-glass))) !important;
+  background-image: linear-gradient(160deg, rgba(255, 255, 255, calc(0.07 * var(--lg-tune-rim))) 0%, rgba(255, 255, 255, calc(0.01 * var(--lg-tune-rim))) 48%, rgba(255, 255, 255, calc(0.04 * var(--lg-tune-rim))) 100%) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, calc(0.16 * var(--lg-tune-rim))),
+    0 20px 46px -26px rgba(0, 0, 0, calc(0.85 * var(--lg-tune-shadow))) !important;
+}
+
+[data-menu-material] [class*="_item"],
+[role="menu"] [role="menuitem"],
+[class*="_menuItem"] {
+  border-radius: calc(10px * var(--lg-tune-radius));
+}
+
+[data-menu-material] [class*="_item"]:hover,
+[role="menu"] [role="menuitem"]:hover,
+[class*="_menuItem"]:hover {
+  background: var(--lg-hover) !important;
+}
+
+/* Generic cards only. The substring match is deliberately narrowed with a
+   complex :not(): composer cards carry their own radius / border treatment
+   (above) and must never pick up the generic one through the broad match. */
+[class*="_card"]:not([class*="_composerStack"] [class*="_card"], [class*="_composerSeat"] [class*="_card"]) {
+  border-radius: calc(16px * var(--lg-tune-radius));
+}
+
+[class*="_card"]:not([class*="_composerStack"] [class*="_card"], [class*="_composerSeat"] [class*="_card"]):hover {
+  border-color: var(--lg-rim) !important;
+}
+
+/* ------------------------ top toast / notice bar ----------------------- */
+/* One pane only: the shell toast is a single fixed element at the top of the
+   window. The fill comes from the toast token; this adds the glass sheen, rim
+   and depth. Children (icon / text / action) stay untouched. */
+[class*="_toast_"] {
+  border-radius: calc(16px * var(--lg-tune-radius)) !important;
+  border: 1px solid rgba(255, 255, 255, calc(0.16 * var(--lg-tune-rim))) !important;
+  background-image: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, calc(0.12 * var(--lg-tune-rim))) 0%,
+    rgba(255, 255, 255, calc(0.03 * var(--lg-tune-rim))) 46%,
+    rgba(255, 255, 255, calc(0.07 * var(--lg-tune-rim))) 100%
+  ) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, calc(0.24 * var(--lg-tune-rim))),
+    inset 0 -1px 0 rgba(0, 0, 0, calc(0.20 * var(--lg-tune-shadow))),
+    0 20px 46px -24px rgba(0, 0, 0, calc(0.88 * var(--lg-tune-shadow))) !important;
+}
+
+/* ---------------------------- scrollbars ------------------------------ */
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, calc(0.24 * var(--lg-tune-rim))) !important;
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, calc(0.34 * var(--lg-tune-rim))) !important;
+}
+
+::selection {
+  background: rgba(129, 140, 248, 0.35);
+}
+
+/* --------------------------- transcript ------------------------------- */
+[class*="_bubble"] {
+  background-color: rgba(32, 40, 70, calc(0.92 * var(--lg-tune-glass))) !important;
+  background-image: linear-gradient(145deg, rgba(124, 150, 255, calc(0.22 * var(--lg-tune-glass))) 0%, rgba(90, 106, 218, calc(0.10 * var(--lg-tune-glass))) 46%, rgba(148, 118, 244, calc(0.16 * var(--lg-tune-glass))) 100%) !important;
+  border: 1px solid rgba(190, 205, 255, calc(0.22 * var(--lg-tune-rim))) !important;
+  border-radius: calc(20px * var(--lg-tune-radius)) calc(20px * var(--lg-tune-radius)) calc(6px * var(--lg-tune-radius)) calc(20px * var(--lg-tune-radius)) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, calc(0.20 * var(--lg-tune-rim)));
+  color: var(--dsw-alias-label-primary) !important;
+}
+
+[class*="_tabs"] {
+  border-radius: calc(12px * var(--lg-tune-radius));
+}
+
+[class*="_tab"]:not([class*="_tabs"]) {
+  border-radius: calc(10px * var(--lg-tune-radius));
+}
+
+[class*="_tab"]:not([class*="_tabs"]):hover {
+  background: var(--lg-hover) !important;
+}
+
+[class*="_tabActive"] {
+  background: var(--lg-hover-strong) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, calc(0.14 * var(--lg-tune-rim)));
+}
+
+[class*="_sessionRow"],
+[class*="_projectRow"] {
+  border-radius: calc(11px * var(--lg-tune-radius));
+}
+
+[class*="_sessionRow"]:hover,
+[class*="_projectRow"]:hover {
+  background: var(--lg-hover) !important;
+}
+
+[class*="_sessionRow"][class*="_selected"] {
+  background: var(--lg-selected) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, calc(0.14 * var(--lg-tune-rim)));
+}
+
+[class*="_previewBadge"] {
+  background: var(--lg-badge-bg) !important;
+  border: 1px solid var(--lg-rim);
+  border-radius: 999px !important;
+}
+
+[class*="_placeholder"] {
+  color: var(--lg-placeholder) !important;
+}
+
+/* ------------------------- content surfaces ---------------------------- */
+/* Markdown / message content addressed through SEMANTIC tags only: pre, code,
+   blockquote, table, mark, kbd survive upstream class-hash churn, unlike
+   substring class matching. Every decoration is zero-layout — background
+   fills, border-colour swaps and inset box-shadow rings; no border width,
+   padding or margin is added, so text flow stays exactly as the host lays it
+   out. Fills come from the palette / theme tokens, so both schemes are
+   served by these single rules. */
+pre {
+  background-color: var(--dsw-alias-markdown-code-block) !important;
+  border-radius: calc(12px * var(--lg-tune-radius));
+  box-shadow:
+    inset 0 0 0 1px var(--lg-rim),
+    inset 0 1px 0 rgba(255, 255, 255, calc(0.10 * var(--lg-tune-rim))) !important;
+}
+
+code {
+  background: var(--lg-badge-bg) !important;
+  border-radius: calc(6px * var(--lg-tune-radius));
+}
+
+pre code {
+  background: transparent !important;
+  border-radius: 0 !important;
+}
+
+blockquote {
+  background: var(--lg-hover) !important;
+  box-shadow: inset 3px 0 0 var(--lg-quote-bar) !important;
+  border-radius: calc(10px * var(--lg-tune-radius));
+}
+
+table,
+th,
+td {
+  border-color: var(--lg-hairline) !important;
+}
+
+th {
+  background: var(--lg-hover-strong) !important;
+}
+
+hr {
+  border-color: var(--lg-hairline) !important;
+}
+
+mark {
+  background: rgba(251, 191, 36, 0.35) !important;
+  color: inherit !important;
+  border-radius: 4px;
+}
+
+kbd {
+  background: var(--lg-badge-bg) !important;
+  box-shadow: inset 0 0 0 1px var(--lg-rim) !important;
+  border-radius: calc(6px * var(--lg-tune-radius));
+}
+
+/* --------------------------- focus visibility -------------------------- */
+/* Static outline only (no animation, no extra paint layers): keyboard users
+   get an obvious ring on every interactive surface in both schemes. */
+button:focus-visible,
+[role="button"]:focus-visible,
+[role="menuitem"]:focus-visible,
+[role="tab"]:focus-visible,
+[role="treeitem"]:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--lg-focus-ring) !important;
+  outline-offset: 2px;
+}
+
+/* ------------------------------ light mode ---------------------------- */
+html:has(body:not([data-ds-dark-theme])) {
+  background-color: #eef2fb !important;
+  background-image:
+    radial-gradient(58vmax 58vmax at 12% 4%, rgba(56, 189, 248, calc(0.36 * var(--lg-tune-aurora))), transparent 70%),
+    radial-gradient(52vmax 52vmax at 84% 0%, rgba(129, 140, 248, calc(0.30 * var(--lg-tune-aurora))), transparent 70%),
+    radial-gradient(62vmax 62vmax at 90% 58%, rgba(167, 139, 250, calc(0.32 * var(--lg-tune-aurora))), transparent 72%),
+    radial-gradient(52vmax 52vmax at 6% 88%, rgba(251, 113, 133, calc(0.20 * var(--lg-tune-aurora))), transparent 72%),
+    radial-gradient(46vmax 46vmax at 68% 98%, rgba(251, 191, 36, calc(0.22 * var(--lg-tune-aurora))), transparent 74%),
+    radial-gradient(120% 100% at 50% 34%, rgba(255, 255, 255, 0) 46%, rgba(255, 255, 255, 0.42) 100%),
+    linear-gradient(160deg, #f4f7ff 0%, #e9eefb 60%, #e4e9f8 100%) !important;
+}
+
+body:not([data-ds-dark-theme]) [class*="_sidebarCol"],
+body:not([data-ds-dark-theme]) [class*="_centerCol"],
+body:not([data-ds-dark-theme]) [class*="_rightbarCol"],
+body:not([data-ds-dark-theme]) [class*="_rightCol"] {
+  border-color: rgba(255, 255, 255, calc(0.85 * var(--lg-tune-rim))) !important;
+  background-color: rgba(255, 255, 255, calc(0.88 * var(--lg-tune-glass))) !important;
+  background-image: linear-gradient(155deg, rgba(255, 255, 255, calc(0.55 * var(--lg-tune-rim))) 0%, rgba(255, 255, 255, calc(0.22 * var(--lg-tune-rim))) 46%, rgba(255, 255, 255, calc(0.40 * var(--lg-tune-rim))) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, calc(0.95 * var(--lg-tune-rim))),
+    0 16px 36px -30px rgba(30, 41, 89, calc(0.25 * var(--lg-tune-shadow)));
+}
+
+body:not([data-ds-dark-theme]) [class*="_composerStack"] [class*="_card"],
+body:not([data-ds-dark-theme]) [class*="_composerSeat"] [class*="_card"] {
+  background-color: rgba(255, 255, 255, calc(0.90 * var(--lg-tune-glass))) !important;
+  background-image: linear-gradient(150deg, rgba(255, 255, 255, calc(0.65 * var(--lg-tune-rim))) 0%, rgba(255, 255, 255, calc(0.28 * var(--lg-tune-rim))) 46%, rgba(255, 255, 255, calc(0.45 * var(--lg-tune-rim))) 100%) !important;
+  border-color: rgba(255, 255, 255, calc(0.95 * var(--lg-tune-rim))) !important;
+}
+
+body:not([data-ds-dark-theme]) [data-menu-material],
+body:not([data-ds-dark-theme]) [role="menu"],
+body:not([data-ds-dark-theme]) [role="dialog"],
+body:not([data-ds-dark-theme]) [class*="_dialog"],
+body:not([data-ds-dark-theme]) [class*="_menuSurface"] {
+  background-color: rgba(251, 252, 255, calc(0.96 * var(--lg-tune-glass))) !important;
+  background-image: linear-gradient(160deg, rgba(255, 255, 255, calc(0.75 * var(--lg-tune-rim))) 0%, rgba(255, 255, 255, calc(0.35 * var(--lg-tune-rim))) 48%, rgba(255, 255, 255, calc(0.60 * var(--lg-tune-rim))) 100%) !important;
+  border-color: rgba(255, 255, 255, calc(0.95 * var(--lg-tune-rim))) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, var(--lg-tune-rim)),
+    0 20px 46px -30px rgba(30, 41, 89, calc(0.28 * var(--lg-tune-shadow))) !important;
+}
+
+body:not([data-ds-dark-theme]) [class*="_toast_"] {
+  border-color: rgba(255, 255, 255, calc(0.92 * var(--lg-tune-rim))) !important;
+  background-image: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, calc(0.88 * var(--lg-tune-rim))) 0%,
+    rgba(255, 255, 255, calc(0.48 * var(--lg-tune-rim))) 46%,
+    rgba(255, 255, 255, calc(0.72 * var(--lg-tune-rim))) 100%
+  ) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, var(--lg-tune-rim)),
+    inset 0 -1px 0 rgba(20, 30, 60, calc(0.06 * var(--lg-tune-rim))),
+    0 20px 46px -26px rgba(30, 41, 89, calc(0.38 * var(--lg-tune-shadow))) !important;
+}
+
+body:not([data-ds-dark-theme]) [class*="_bubble"] {
+  background-color: rgba(226, 232, 255, calc(0.94 * var(--lg-tune-glass))) !important;
+  background-image: linear-gradient(145deg, rgba(199, 210, 254, calc(0.85 * var(--lg-tune-glass))) 0%, rgba(224, 231, 255, calc(0.70 * var(--lg-tune-glass))) 46%, rgba(233, 213, 255, calc(0.78 * var(--lg-tune-glass))) 100%) !important;
+  border-color: rgba(255, 255, 255, calc(0.95 * var(--lg-tune-rim))) !important;
+}
+
+body:not([data-ds-dark-theme]) ::-webkit-scrollbar-thumb {
+  background: rgba(15, 30, 60, calc(0.20 * var(--lg-tune-rim))) !important;
+}
+
+body:not([data-ds-dark-theme]) ::-webkit-scrollbar-thumb:hover {
+  background: rgba(15, 30, 60, calc(0.30 * var(--lg-tune-rim))) !important;
+}
+
+/* ------------------------ settings page (tuning) ------------------------ */
+/* The 魔理沙UI page inside the Settings panel (slot `settings.section`, its
+   own nav entry beside General / Models / Plugins). Scoped by
+   [data-lg-settings] so it can never style anything outside its own
+   registration. Colours come from host label tokens and the shared palette,
+   so both schemes stay coherent. */
+[data-lg-settings] {
+  display: grid;
+  gap: 12px;
+  padding: 4px 2px;
+}
+
+[data-lg-settings] .lg-tune-head {
+  display: grid;
+  gap: 4px;
+}
+
+[data-lg-settings] .lg-tune-title {
+  color: var(--dsw-alias-label-primary);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+[data-lg-settings] .lg-tune-desc {
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+[data-lg-settings] .lg-tune-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px 16px;
+}
+
+[data-lg-settings] .lg-tune-row {
+  display: grid;
+  grid-template-columns: 84px 1fr 44px;
+  align-items: center;
+  gap: 8px;
+}
+
+[data-lg-settings] .lg-tune-label {
+  color: var(--dsw-alias-label-primary-dimmed);
+  font-size: 12px;
+}
+
+[data-lg-settings] .lg-tune-value {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+[data-lg-settings] input[type="range"] {
+  width: 100%;
+  accent-color: var(--dsw-alias-state-business-primary);
+}
+
+[data-lg-settings] .lg-tune-reset {
+  justify-self: start;
+  padding: 4px 12px;
+  border-radius: calc(8px * var(--lg-tune-radius));
+  border: 1px solid var(--lg-rim);
+  background: var(--lg-badge-bg);
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+[data-lg-settings] .lg-tune-reset:hover {
+  background: var(--lg-hover-strong);
+}
+
+[data-lg-settings] .lg-tune-toggle {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 8px;
+}
+
+[data-lg-settings] .lg-tune-toggle input[type="checkbox"] {
+  justify-self: start;
+  accent-color: var(--dsw-alias-state-business-primary);
+}
+
+[data-lg-settings] .lg-tune-hint {
+  grid-column: 1 / -1;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* -------------------- window-glass patch (host actions) ------------------ */
+[data-lg-settings] .lg-patch {
+  display: grid;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--lg-hairline);
+}
+
+[data-lg-settings] .lg-patch-status {
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 1.7;
+  font-variant-numeric: tabular-nums;
+}
+
+[data-lg-settings] .lg-patch-actions {
+  display: flex;
+  gap: 8px;
+}
+
+[data-lg-settings] .lg-patch-actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+[data-lg-settings] .lg-patch-msg {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 1.5;
+}

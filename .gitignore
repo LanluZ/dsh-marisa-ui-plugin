@@ -1,0 +1,16 @@
+# Dependencies
+node_modules/
+
+# Extracted DSH app source — not part of this repository
+_dsh-src/
+
+# OS / editor noise
+Thumbs.db
+Desktop.ini
+.DS_Store
+*.log
+
+# Local-only docs — contain machine paths / outdated checklists, never publish
+docs/README.md
+plugin/README.md
+tools/probes/README.md

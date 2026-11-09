@@ -1,0 +1,40 @@
+{
+  "name": "@local/dsh-ui-liquidglass",
+  "version": "1.9.1",
+  "private": true,
+  "type": "module",
+  "description": "Marisa UI: a static, zero-blur aurora-glass theme for the DeepSeek Harness web UI — frosted panels, specular rims, chromatic edges and a drifting-look aurora backdrop without per-frame rendering cost.",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-theme",
+        "@deepseek-ai/dsh-client-ui-renderer"
+      ]
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "~4.1.0"
+  },
+  "license": "MIT"
+}

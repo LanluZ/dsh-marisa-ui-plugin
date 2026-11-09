@@ -1,0 +1,8 @@
+# Marisa UI bundle layer: registers the Marisa UI plugin row into the
+# profile's Loader tree. The package declares `dsh.client` in package.json,
+# which marks it as a browser-roster entry, so the web UI loads the bundled
+# `./client` export; the host `apply` (index.js) mounts the app.asar
+# window-glass patcher's routes on the dsh web server.
+- insert:
+    - id: ui-liquidglass
+      name: '@local/dsh-ui-liquidglass'
