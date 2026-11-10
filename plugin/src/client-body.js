@@ -28,16 +28,18 @@ function injectStyles() {
 
 /* ------------------------------- tuning -------------------------------- */
 /** Knob defaults (percent of the design baseline) and their slider bounds. */
-const TUNE_DEFAULTS = { aurora: 100, glass: 100, rim: 100, radius: 100, shadow: 100, focus: 100 };
+const TUNE_DEFAULTS = { aurora: 100, glass: 100, window: 100, total: 100, rim: 100, radius: 100, shadow: 100, focus: 100 };
 const TUNE_BOUNDS = {
   aurora: [0, 150],
   glass: [25, 100],
+  window: [25, 150],
+  total: [25, 100],
   rim: [0, 150],
   radius: [0, 150],
   shadow: [0, 150],
   focus: [0, 150]
 };
-const TUNE_KEYS = ["--lg-tune-aurora", "--lg-tune-glass", "--lg-tune-rim", "--lg-tune-radius", "--lg-tune-shadow", "--lg-tune-focus"];
+const TUNE_KEYS = ["--lg-tune-aurora", "--lg-tune-glass", "--lg-tune-window", "--lg-tune-total", "--lg-tune-rim", "--lg-tune-radius", "--lg-tune-shadow", "--lg-tune-focus"];
 const TUNE_STORAGE_PREFIX = "dsh.ui-liquidglass.tune.";
 
 /** Clamp one knob into its bounds and snap to the 5% slider step. */
@@ -68,14 +70,24 @@ function writeTuning(tuning) {
   } catch {}
 }
 
-/** Push the knobs onto <html> as the `--lg-tune-*` gains theme.css consumes. */
+/** Push the knobs onto <html> as the `--lg-tune-*` gains theme.css consumes.
+ * `total` is the app-level glass master ("应用级毛玻璃注入后的透明度"): it folds
+ * into the four GLASS gains at write time (glass / window / rim / shadow), so
+ * every decorative glass layer — component fills, big-panel fills, sheen, rims,
+ * shadows — fades or solidifies as ONE slab. TEXT AND ICONS NEVER DIM: label
+ * colours come from host tokens (no gain), and theme.css divides the fold back
+ * out of --lg-placeholder (placeholder is text). aurora / radius / focus are
+ * not glass and keep their own axes. */
 function applyTuning(tuning) {
   const style = document.documentElement.style;
+  const total = tuning.total / 100;
   style.setProperty("--lg-tune-aurora", String(tuning.aurora / 100));
-  style.setProperty("--lg-tune-glass", String(tuning.glass / 100));
-  style.setProperty("--lg-tune-rim", String(tuning.rim / 100));
+  style.setProperty("--lg-tune-glass", String((tuning.glass / 100) * total));
+  style.setProperty("--lg-tune-window", String((tuning.window / 100) * total));
+  style.setProperty("--lg-tune-total", String(total));
+  style.setProperty("--lg-tune-rim", String((tuning.rim / 100) * total));
   style.setProperty("--lg-tune-radius", String(tuning.radius / 100));
-  style.setProperty("--lg-tune-shadow", String(tuning.shadow / 100));
+  style.setProperty("--lg-tune-shadow", String((tuning.shadow / 100) * total));
   style.setProperty("--lg-tune-focus", String(tuning.focus / 100));
 }
 
@@ -112,6 +124,103 @@ function applyReveal(on) {
   else delete document.documentElement.dataset.lgReveal;
 }
 
+/* ------------------------ window background layer ----------------------- */
+/**
+ * The stacked semi-transparent solid background ("叠背景") over the WHOLE
+ * injected window: one flat colour layer whose alpha IS the window opacity —
+ * the post-injection transparency control. Settings lets the user type RGBA
+ * (its A = the opacity); absent = no layer (theme baseline). theme.css paints
+ * the layer on the WINDOW SHELL (`[class*="_frame"]` — the level the draggable
+ * titlebar rides, already transparent through the injection) under
+ * `data-lg-bg="custom"`: one background behind the glass UI, over the aurora
+ * canvas, surviving 透出桌面壁纸 mode.
+ */
+const BG_STORAGE_KEY = "dsh.ui-liquidglass.bg";
+
+/** Theme-baseline colour shown when no custom layer is set. */
+function defaultBg() {
+  const light = typeof document !== "undefined" && document.body && !document.body.hasAttribute("data-ds-dark-theme");
+  return light ? { r: 238, g: 242, b: 251, a: 100 } : { r: 5, g: 6, b: 14, a: 100 };
+}
+
+/** Read the custom background layer ("r,g,b,a", a in percent; absent = baseline). */
+function readBg() {
+  try {
+    const raw = localStorage.getItem(BG_STORAGE_KEY);
+    if (!raw) return null;
+    const parts = raw.split(",").map(Number);
+    if (parts.length !== 4 || !parts.every(Number.isFinite)) return null;
+    return {
+      r: Math.min(255, Math.max(0, Math.round(parts[0]))),
+      g: Math.min(255, Math.max(0, Math.round(parts[1]))),
+      b: Math.min(255, Math.max(0, Math.round(parts[2]))),
+      a: Math.min(100, Math.max(0, Math.round(parts[3])))
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Persist the custom layer; `null` removes it (back to theme baseline). */
+function writeBg(bg) {
+  try {
+    if (bg) localStorage.setItem(BG_STORAGE_KEY, bg.r + "," + bg.g + "," + bg.b + "," + bg.a);
+    else localStorage.removeItem(BG_STORAGE_KEY);
+  } catch {}
+}
+
+/** Apply the layer: inline `--lg-bg-*` plus the custom-mode marker. */
+function applyBg(bg) {
+  const el = document.documentElement;
+  if (!bg) {
+    delete el.dataset.lgBg;
+    for (const key of ["--lg-bg-r", "--lg-bg-g", "--lg-bg-b", "--lg-bg-a"]) el.style.removeProperty(key);
+    return;
+  }
+  el.dataset.lgBg = "custom";
+  el.style.setProperty("--lg-bg-r", String(bg.r));
+  el.style.setProperty("--lg-bg-g", String(bg.g));
+  el.style.setProperty("--lg-bg-b", String(bg.b));
+  el.style.setProperty("--lg-bg-a", String(bg.a / 100));
+}
+
+/** Remove the inline layer so the stylesheet baseline takes over again. */
+function clearBg() {
+  applyBg(null);
+}
+
+/* --------------------------- sidebar frame ----------------------------- */
+/**
+ * Storage key of the left-sidebar frame toggle (see theme.css). The host's
+ * own left panel is a plain square area — no radius, no rim, no shadow —
+ * while its main panel is a rounded glass card; this knob lets the user pick.
+ * Absent = on (the theme's full glass frame); "0" = off (plain fill only).
+ */
+const SIDEBAR_FRAME_STORAGE_KEY = "dsh.ui-liquidglass.sidebarFrame";
+
+/** Read the sidebar frame toggle (absent = on). */
+function readSidebarFrame() {
+  try {
+    return localStorage.getItem(SIDEBAR_FRAME_STORAGE_KEY) !== "0";
+  } catch {
+    return true;
+  }
+}
+
+/** Persist the sidebar frame toggle (default state removes the key). */
+function writeSidebarFrame(on) {
+  try {
+    if (on) localStorage.removeItem(SIDEBAR_FRAME_STORAGE_KEY);
+    else localStorage.setItem(SIDEBAR_FRAME_STORAGE_KEY, "0");
+  } catch {}
+}
+
+/** Mark the document so theme.css can strip the frame from ONLY the left column. */
+function applySidebarFrame(on) {
+  if (on) delete document.documentElement.dataset.lgSidebarFrame;
+  else document.documentElement.dataset.lgSidebarFrame = "off";
+}
+
 /* -------------------------------- locale -------------------------------- */
 /** Dictionary namespace owned by this plugin (the settings-row copy). */
 const NS = "settings.liquidglass";
@@ -119,15 +228,25 @@ const NS = "settings.liquidglass";
 /** Simplified Chinese dictionary (the key-set source of truth). */
 const zh = {
   "liquidglass.title": "魔理沙UI",
-  "liquidglass.desc": "调节极光与玻璃外观的细节强度。数值为设计基准的百分比，改动即时生效并自动保存。",
+  "liquidglass.desc": "调节极光与玻璃外观的细节强度。数值为设计基准的百分比，改动即时生效并自动保存。不透明度三档分工：玻璃 = 组件表面（输入卡/菜单/气泡等），窗口 = 三块大面板（侧栏/主面板/右栏），整窗 = 应用级毛玻璃总透明度——所有玻璃层（填充/高光/描边/投影）统一变实/变透，文字与图标始终保持清晰；配合窗口玻璃注入 + 透出桌面壁纸即为注入后毛玻璃的透明度调节。",
   "liquidglass.aurora": "极光强度",
   "liquidglass.glass": "玻璃不透明度",
+  "liquidglass.window": "窗口不透明度",
+  "liquidglass.total": "整窗玻璃透明度",
   "liquidglass.rim": "高光与描边",
   "liquidglass.radius": "圆角缩放",
   "liquidglass.shadow": "阴影深度",
   "liquidglass.focus": "焦点环",
+  "liquidglass.bg.title": "窗口背景叠层",
+  "liquidglass.bg.desc": "叠在整个注入窗口上的半透明纯色背景层：颜色与不透明度自行输入 RGBA，**实时作用于整个窗口**。叠层画在窗口外壳层——与顶部可拖拽标题栏同级（那里已被系统级注入透明化），是一整块覆盖全窗（含标题栏条带）的背景：压在极光画布之上、玻璃面板之下。A 即窗口不透明度。面板纯色填充保持各自设计色与不透明度，叠层不染色界面；高光/描边/投影与文字图标均不受影响。透出桌面壁纸模式下叠层依旧生效。",
+  "liquidglass.bg.a": "叠层不透明度",
+  "liquidglass.bg.customOn": "自定义背景生效中",
+  "liquidglass.bg.customOff": "当前为主题默认背景",
+  "liquidglass.bg.resetColor": "恢复默认背景",
   "liquidglass.reveal": "透出桌面壁纸",
   "liquidglass.revealHint": "开启后整窗画布变透明，配合宿主窗口的透明或系统材质（亚克力/云母）即可透出桌面。宿主未开启时窗口将显示纯色背景。",
+  "liquidglass.sidebarFrame": "左侧栏玻璃面板",
+  "liquidglass.sidebarFrameHint": "宿主原生左侧面板是直角素面（主面板才是圆角玻璃卡）。关闭后左侧栏整块透明：无圆角、描边、高光、投影，玻璃填充与底部渐隐也一并移除，直接透出窗口底层（极光画布 / 透出桌面时的壁纸）；中栏与右栏不受影响。",
   "liquidglass.winpatch.title": "窗口玻璃（系统级）",
   "liquidglass.winpatch.desc": "向安装目录的 app.asar 注入原生亚克力窗口（自动备份原始文件，可随时还原），与“透出桌面壁纸”配合即为完整壁纸玻璃。注入 / 还原后需完全重启 DSH；DSH 升级会覆盖注入，届时重新注入即可。",
   "liquidglass.winpatch.inject": "注入 app.asar",
@@ -151,15 +270,25 @@ const zh = {
 /** English dictionary. */
 const en = {
   "liquidglass.title": "Marisa UI",
-  "liquidglass.desc": "Tune the aurora and glass look — percentages of the design baseline. Changes apply instantly and persist automatically.",
+  "liquidglass.desc": "Tune the aurora and glass look — percentages of the design baseline. Changes apply instantly and persist automatically. Three opacity tiers: Glass = component surfaces, Window = the three big panels, Whole-window = app-level glass master — every glass layer (fills, sheen, rims, shadows) fades or solidifies as one slab while text and icons stay perfectly crisp; with the window-glass patch + desktop reveal this is the post-injection glass transparency knob.",
   "liquidglass.aurora": "Aurora",
   "liquidglass.glass": "Glass opacity",
+  "liquidglass.window": "Window opacity",
+  "liquidglass.total": "Whole-window glass",
   "liquidglass.rim": "Rim & edges",
   "liquidglass.radius": "Corner radius",
   "liquidglass.shadow": "Shadow depth",
   "liquidglass.focus": "Focus ring",
+  "liquidglass.bg.title": "Window background layer",
+  "liquidglass.bg.desc": "A semi-transparent solid colour stacked over the whole injected window — type any RGBA and it applies live. The layer paints at the window-shell level — the same shell the draggable titlebar rides (already transparent through the system-level injection) — one background covering the whole window including the titlebar strip, stacked over the aurora canvas and under the glass panels. A IS the window opacity. Surface fills keep their designed colours and alphas — the layer never recolours the UI — and highlights, rims, shadows, text and icons are unaffected. The layer stays active in wallpaper-reveal mode.",
+  "liquidglass.bg.a": "Layer opacity",
+  "liquidglass.bg.customOn": "custom colour active",
+  "liquidglass.bg.customOff": "theme default background",
+  "liquidglass.bg.resetColor": "Restore default background",
   "liquidglass.reveal": "Desktop reveal",
   "liquidglass.revealHint": "Makes the window canvas transparent so a transparent host window or system backdrop (acrylic / mica) shows the desktop. Without host support the window shows a flat colour.",
+  "liquidglass.sidebarFrame": "Left sidebar glass panel",
+  "liquidglass.sidebarFrameHint": "The host's native left panel is a plain square area (only its main panel is a rounded glass card). Turn off to make the whole left column transparent — no radius, rim, highlight, shadow, fill or footer fade, so the window's bottom layer (aurora canvas, or the desktop in reveal mode) shows straight through. Center and right columns are unaffected.",
   "liquidglass.winpatch.title": "Window glass (system level)",
   "liquidglass.winpatch.desc": "Injects a native acrylic main window into the installed app.asar (the pristine file is backed up automatically and can be restored anytime). Combined with Desktop reveal this is full wallpaper glass. A complete DSH restart is required after inject / restore; a DSH upgrade overwrites the patch — just inject again.",
   "liquidglass.winpatch.inject": "Inject app.asar",
@@ -226,6 +355,9 @@ function SettingsPage(props) {
   const t = typeof props.t === "function" ? props.t : (key) => zh[key] ?? key;
   const [tuning, setTuning] = React.useState(() => readTuning());
   const [reveal, setRevealState] = React.useState(() => readReveal());
+  const [sidebarFrame, setSidebarFrameState] = React.useState(() => readSidebarFrame());
+  const [bg, setBg] = React.useState(() => readBg() || defaultBg());
+  const [bgCustom, setBgCustom] = React.useState(() => readBg() !== null);
   const [patchState, setPatchState] = React.useState(null);
   const [patchBusy, setPatchBusy] = React.useState(false);
   const [patchMsg, setPatchMsg] = React.useState("");
@@ -263,6 +395,38 @@ function SettingsPage(props) {
     writeReveal(on);
     applyReveal(on);
   };
+  const toggleSidebarFrame = (on) => {
+    setSidebarFrameState(on);
+    writeSidebarFrame(on);
+    applySidebarFrame(on);
+  };
+  const updateBg = (field, value) => {
+    setBg((prev) => {
+      const next = { ...prev, [field]: value };
+      writeBg(next);
+      applyBg(next);
+      return next;
+    });
+    setBgCustom(true);
+  };
+  const resetBg = () => {
+    writeBg(null);
+    applyBg(null);
+    setBgCustom(false);
+    setBg(defaultBg());
+  };
+  const bgNum = (field, min, max) =>
+    React.createElement("input", {
+      id: "lg-bg-" + field,
+      type: "number",
+      min: String(min),
+      max: String(max),
+      value: String(bg[field]),
+      onChange: (event) => {
+        const value = Number(event.target.value);
+        if (Number.isFinite(value)) updateBg(field, Math.min(max, Math.max(min, Math.round(value))));
+      }
+    });
   const reset = () => {
     const next = { ...TUNE_DEFAULTS };
     writeTuning(next);
@@ -271,10 +435,19 @@ function SettingsPage(props) {
     writeReveal(false);
     applyReveal(false);
     setRevealState(false);
+    writeSidebarFrame(true);
+    applySidebarFrame(true);
+    setSidebarFrameState(true);
+    writeBg(null);
+    applyBg(null);
+    setBgCustom(false);
+    setBg(defaultBg());
   };
   const rows = [
     ["aurora", 0, 150],
     ["glass", 25, 100],
+    ["window", 25, 150],
+    ["total", 25, 100],
     ["rim", 0, 150],
     ["radius", 0, 150],
     ["shadow", 0, 150],
@@ -312,6 +485,44 @@ function SettingsPage(props) {
     ),
     React.createElement(
       "div",
+      { className: "lg-bg" },
+      React.createElement("div", { className: "lg-tune-title" }, t("liquidglass.bg.title")),
+      React.createElement("div", { className: "lg-tune-desc" }, t("liquidglass.bg.desc")),
+      React.createElement(
+        "div",
+        { className: "lg-bg-row" },
+        React.createElement("label", { htmlFor: "lg-bg-r" }, "R"),
+        bgNum("r", 0, 255),
+        React.createElement("label", { htmlFor: "lg-bg-g" }, "G"),
+        bgNum("g", 0, 255),
+        React.createElement("label", { htmlFor: "lg-bg-b" }, "B"),
+        bgNum("b", 0, 255),
+        React.createElement("label", { htmlFor: "lg-bg-a" }, "A"),
+        bgNum("a", 0, 100),
+        React.createElement("input", {
+          type: "range",
+          min: "0",
+          max: "100",
+          step: "5",
+          value: String(bg.a),
+          "aria-label": t("liquidglass.bg.a"),
+          onChange: (event) => updateBg("a", Number(event.target.value))
+        })
+      ),
+      React.createElement(
+        "div",
+        { className: "lg-tune-hint" },
+        "rgba(" + bg.r + ", " + bg.g + ", " + bg.b + ", " + (bg.a / 100).toFixed(2) + ") · " +
+          (bgCustom ? t("liquidglass.bg.customOn") : t("liquidglass.bg.customOff"))
+      ),
+      React.createElement(
+        "button",
+        { type: "button", className: "lg-tune-reset", onClick: resetBg },
+        t("liquidglass.bg.resetColor")
+      )
+    ),
+    React.createElement(
+      "div",
       { className: "lg-tune-toggle" },
       React.createElement("label", { className: "lg-tune-label", htmlFor: "lg-tune-reveal" }, t("liquidglass.reveal")),
       React.createElement("input", {
@@ -321,6 +532,18 @@ function SettingsPage(props) {
         onChange: (event) => toggleReveal(event.target.checked)
       }),
       React.createElement("div", { className: "lg-tune-hint" }, t("liquidglass.revealHint"))
+    ),
+    React.createElement(
+      "div",
+      { className: "lg-tune-toggle" },
+      React.createElement("label", { className: "lg-tune-label", htmlFor: "lg-tune-sidebar-frame" }, t("liquidglass.sidebarFrame")),
+      React.createElement("input", {
+        id: "lg-tune-sidebar-frame",
+        type: "checkbox",
+        checked: sidebarFrame,
+        onChange: (event) => toggleSidebarFrame(event.target.checked)
+      }),
+      React.createElement("div", { className: "lg-tune-hint" }, t("liquidglass.sidebarFrameHint"))
     ),
     React.createElement(
       "div",
@@ -383,9 +606,17 @@ function apply(ctx) {
     return () => clearTuning();
   }, "liquid-glass: tuning values");
   ctx.effect(() => {
+    applyBg(readBg());
+    return () => clearBg();
+  }, "liquid-glass: window background layer");
+  ctx.effect(() => {
     applyReveal(readReveal());
     return () => applyReveal(false);
   }, "liquid-glass: wallpaper reveal");
+  ctx.effect(() => {
+    applySidebarFrame(readSidebarFrame());
+    return () => applySidebarFrame(true);
+  }, "liquid-glass: sidebar frame");
   ctx.effect(() => ctx.locale.register(NS, STRINGS), "liquid-glass: settings dictionaries");
   ctx.slots.inject("settings.section", () =>
     ctx.slots.register(

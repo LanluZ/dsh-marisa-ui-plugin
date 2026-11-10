@@ -15,17 +15,44 @@
    ========================================================================= */
 
 /* ------------------------------ backdrop ------------------------------- */
+/* Whole-window glass master (--lg-tune-total, "应用级毛玻璃注入后的透明度"):
+   TEXT AND ICONS ARE NEVER DIMMED. The knob is folded into the glass / window
+   / rim / shadow GAIN WRITES at applyTuning time (client-body.js), so every
+   decorative glass layer — component fills, big-panel fills, sheen, rims,
+   shadows — fades / solidifies as ONE slab while the words stay crisp. The
+   backdrop (aurora canvas), radius and focus ring are not glass and stay on
+   their own axes; --lg-placeholder divides the fold back out (it is text). */
 html {
-  background-color: #05060e !important;
-  background-image:
+  /* Canvas decoration layers (aurora + vignette) live in one custom property
+     so the custom window-background layer can drop the opaque base without
+     repeating the list. */
+  --lg-canvas-layers:
     radial-gradient(58vmax 58vmax at 12% 4%, rgba(34, 211, 238, calc(0.32 * var(--lg-tune-aurora))), transparent 70%),
     radial-gradient(52vmax 52vmax at 84% 0%, rgba(59, 130, 246, calc(0.28 * var(--lg-tune-aurora))), transparent 70%),
     radial-gradient(62vmax 62vmax at 90% 58%, rgba(139, 92, 246, calc(0.32 * var(--lg-tune-aurora))), transparent 72%),
     radial-gradient(52vmax 52vmax at 6% 88%, rgba(236, 72, 153, calc(0.20 * var(--lg-tune-aurora))), transparent 72%),
     radial-gradient(46vmax 46vmax at 68% 98%, rgba(251, 191, 36, calc(0.16 * var(--lg-tune-aurora))), transparent 74%),
-    radial-gradient(120% 100% at 50% 34%, rgba(2, 3, 8, 0) 40%, rgba(2, 3, 8, 0.55) 100%),
-    linear-gradient(160deg, #080a14 0%, #04050c 58%, #030409 100%);
+    radial-gradient(120% 100% at 50% 34%, rgba(2, 3, 8, 0) 40%, rgba(2, 3, 8, 0.55) 100%);
+  background-color: #05060e !important;
+  background-image: var(--lg-canvas-layers), linear-gradient(160deg, #080a14 0%, #04050c 58%, #030409 100%);
   background-repeat: no-repeat;
+}
+
+/* Window background layer ("叠背景", the post-injection window opacity):
+   ONE semi-transparent solid colour painted at the WINDOW SHELL level — the
+   same shell the draggable Windows titlebar rides, whose strip the acrylic
+   injection already made transparent. The layer therefore covers the WHOLE
+   injected window (titlebar band included) as ONE background, stacked over
+   the aurora canvas and under the glass panels + content. Its RGB and A are
+   self-input as RGBA in Settings and written inline as `--lg-bg-*` (A IS the
+   window opacity). Surface fills keep their designed colours and alphas —
+   the layer never leaks into the UI — and decorations (sheen / rims /
+   shadows / hover) and text stay on their own axes. Shell level also means
+   the layer survives "透出桌面壁纸": reveal mode turns the html canvas
+   transparent, but the shell layer keeps tinting the window over the acrylic
+   desktop. */
+html[data-lg-bg="custom"] [class*="_frame"] {
+  background: rgb(var(--lg-bg-r) var(--lg-bg-g) var(--lg-bg-b) / var(--lg-bg-a)) !important;
 }
 
 body {
@@ -59,10 +86,32 @@ html {
   /* Tunable gains (written by the Settings row; 1 = design default). */
   --lg-tune-aurora: 1;
   --lg-tune-glass: 1;
+  /* Window-level fill gain, orthogonal to --lg-tune-glass: glass tunes the
+     component surfaces (composer / menus / bubbles / toast), window tunes only
+     the big window columns' glass fill — so "everything too transparent" is
+     fixed on one axis without touching component glass. */
+  --lg-tune-window: 1;
+  /* Whole-window glass master ("应用级毛玻璃透明度"): folded into the glass /
+     window / rim / shadow gain WRITES at applyTuning time (client-body.js) —
+     every glass layer fades as one slab. Text and icons never dim: placeholder
+     text divides the fold back out below; label colours come from host tokens
+     and carry no gain. radius / focus stay untouched — geometry and keyboard
+     visibility are not transparency. */
+  --lg-tune-total: 1;
   --lg-tune-rim: 1;
   --lg-tune-radius: 1;
   --lg-tune-shadow: 1;
   --lg-tune-focus: 1;
+
+  /* Window background layer ("叠背景"): the Settings page writes the user RGBA
+     inline (see the html[data-lg-bg] rule above). The layer itself paints on
+     the window shell (the frame the titlebar rides) — one background for the
+     whole injected window. These are theme-baseline fallbacks only; surfaces
+     and decorations keep their own colours and axes. */
+  --lg-bg-r: 5;
+  --lg-bg-g: 6;
+  --lg-bg-b: 14;
+  --lg-bg-a: 1;
 
   --lg-hover: rgba(255, 255, 255, calc(0.06 * var(--lg-tune-glass)));
   --lg-hover-strong: rgba(255, 255, 255, calc(0.09 * var(--lg-tune-glass)));
@@ -70,8 +119,10 @@ html {
   --lg-hairline: rgba(255, 255, 255, calc(0.055 * var(--lg-tune-rim)));
   --lg-selected: rgba(124, 158, 255, calc(0.16 * var(--lg-tune-glass)));
   --lg-badge-bg: rgba(255, 255, 255, calc(0.09 * var(--lg-tune-glass)));
-  --lg-placeholder: rgba(222, 230, 248, calc(0.55 * var(--lg-tune-glass)));
-  --lg-foot-scrim: rgba(8, 10, 18, calc(0.22 * var(--lg-tune-glass)));
+  /* Placeholder is TEXT: divide the total fold back out so hint text never
+     dims with the glass master (only its own glass axis applies). */
+  --lg-placeholder: rgba(222, 230, 248, calc(0.55 * var(--lg-tune-glass) / var(--lg-tune-total)));
+  --lg-foot-scrim: rgb(8 10 18 / calc(0.22 * var(--lg-tune-glass)));
   --lg-focus-ring: rgba(103, 232, 249, calc(0.55 * var(--lg-tune-focus)));
   --lg-quote-bar: rgba(129, 140, 248, calc(0.60 * var(--lg-tune-focus)));
   /* Hairline rim around the whole window: the glass slab needs its edge
@@ -89,12 +140,16 @@ html:has(body:not([data-ds-dark-theme])) {
   --lg-hairline: rgba(30, 41, 89, calc(0.10 * var(--lg-tune-rim)));
   --lg-selected: rgba(59, 111, 224, calc(0.14 * var(--lg-tune-glass)));
   --lg-badge-bg: rgba(30, 41, 89, calc(0.08 * var(--lg-tune-glass)));
-  --lg-placeholder: rgba(52, 64, 88, calc(0.60 * var(--lg-tune-glass)));
-  --lg-foot-scrim: rgba(30, 41, 89, calc(0.08 * var(--lg-tune-glass)));
+  --lg-placeholder: rgba(52, 64, 88, calc(0.60 * var(--lg-tune-glass) / var(--lg-tune-total)));
+  --lg-foot-scrim: rgb(30 41 89 / calc(0.08 * var(--lg-tune-glass)));
   --lg-focus-ring: rgba(59, 111, 224, calc(0.55 * var(--lg-tune-focus)));
   --lg-quote-bar: rgba(59, 111, 224, calc(0.55 * var(--lg-tune-focus)));
   --lg-window-rim: rgba(30, 41, 89, calc(0.12 * var(--lg-tune-rim)));
   --lg-titlebar-rgb: 238 242 251;
+  --lg-bg-r: 238;
+  --lg-bg-g: 242;
+  --lg-bg-b: 251;
+  --lg-bg-a: 1;
 }
 
 /* ---------------------------- app shell ------------------------------- */
@@ -138,33 +193,30 @@ html[data-lg-reveal="on"] [data-windows-titlebar] [class*="_frame"]::before {
     ) !important;
 }
 
-/* Floating glass columns: the 8px gutter lives on the FRAME (grid gap +
-   padding), never on the columns. The sidebar root carries an inline width
-   equal to its whole grid track and its column clips overflow, so any
-   margin/width inset on the column chopped the right edge of the button area
-   and its text. Gap + padding inset the panels while every column keeps its
-   full track width, so nothing can be clipped. */
-[class*="_frame"]:has(> [class*="_sidebarCol"]) {
-  column-gap: 8px !important;
-  padding-left: 8px;
-  padding-right: 8px;
-  padding-bottom: 8px;
-}
+/* Flush glass columns (1.9.2): every rounded panel must measure EXACTLY the
+   host's grid track, so the frame keeps its original box — the host frame has
+   no padding and no gap in the plain layout, and only
+   `padding-top: var(--dsh-windows-titlebar-height)` under a Windows titlebar.
+   Do NOT add frame padding / column-gap here: that is what previously made
+   each panel narrower than the original component (8px outer gutter + 8px per
+   inter-column seam). Columns still never carry their own margin/width inset —
+   the sidebar root's inline width equals its whole track and the column clips
+   overflow, so an inset on the column chops the right edge of the button area.
+   Grid stretch keeps `border: 1px` inside the track (border-box), so the rim
+   costs no width either. To bring the floating-aurora gutter back, re-add
+   `column-gap: 8px` plus 8px frame padding (left/right/bottom, and top as
+   `calc(var(--dsh-windows-titlebar-height) + 8px)`) on the frame. */
 
-html[data-windows-titlebar] [class*="_frame"]:has(> [class*="_sidebarCol"]) {
-  padding-top: calc(var(--dsh-windows-titlebar-height) + 8px) !important;
-}
-
-/* Floating glass panels: the aurora gutter comes from the frame's grid gap and
-   padding (above), so each column keeps its full track width. No overflow
-   clipping on the scrolling column — tint and radius alone carry the shape. */
+/* Floating glass panels: flush with the host grid (no gutter), so each column
+   keeps its exact original track width. No overflow clipping on the scrolling
+   column — tint and radius alone carry the shape. */
 [class*="_sidebarCol"],
 [class*="_centerCol"],
 [class*="_rightbarCol"],
 [class*="_rightCol"] {
   border-radius: calc(20px * var(--lg-tune-radius)) !important;
   border: 1px solid rgba(255, 255, 255, calc(0.13 * var(--lg-tune-rim))) !important;
-  background-color: rgba(9, 12, 22, calc(0.90 * var(--lg-tune-glass))) !important;
+  background-color: rgb(9 12 22 / calc(0.90 * var(--lg-tune-window))) !important;
   background-image: linear-gradient(155deg, rgba(255, 255, 255, calc(0.07 * var(--lg-tune-rim))) 0%, rgba(255, 255, 255, calc(0.01 * var(--lg-tune-rim))) 46%, rgba(255, 255, 255, calc(0.035 * var(--lg-tune-rim))) 100%);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, calc(0.22 * var(--lg-tune-rim))),
@@ -176,11 +228,19 @@ html[data-windows-titlebar] [class*="_frame"]:has(> [class*="_sidebarCol"]) {
 
 [class*="_sidebarCol"] {
   margin: 0 !important;
+  /* The left column carries NO outer drop shadow (1.9.3): it is flush with the
+     window's left / bottom edges, so the only place the shadow could show is
+     leaking around the rounded corners — the dark smudge at the window's
+     bottom-left corner. Keep just the inset rim / dispersion layers. */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, calc(0.22 * var(--lg-tune-rim))),
+    inset 1px 0 0 rgba(103, 232, 249, calc(0.06 * var(--lg-tune-rim))),
+    inset -1px 0 0 rgba(192, 132, 252, calc(0.08 * var(--lg-tune-rim))) !important;
 }
 
 [class*="_centerCol"] {
   margin: 0 !important;
-  background-color: rgba(8, 11, 20, calc(0.92 * var(--lg-tune-glass))) !important;
+  background-color: rgb(8 11 20 / calc(0.92 * var(--lg-tune-window))) !important;
   border-color: rgba(255, 255, 255, calc(0.14 * var(--lg-tune-rim))) !important;
 }
 
@@ -207,7 +267,7 @@ html[data-windows-titlebar] [class*="_frame"]:has(> [class*="_sidebarCol"]) {
 button[class*="_newSession"] {
   margin-left: 12px;
   margin-right: 12px;
-  background: rgba(255, 255, 255, calc(0.065 * var(--lg-tune-glass))) !important;
+  background: rgb(255 255 255 / calc(0.065 * var(--lg-tune-glass))) !important;
   background-image: none !important;
   border: 1px solid var(--lg-rim) !important;
   border-radius: calc(14px * var(--lg-tune-radius)) !important;
@@ -267,12 +327,25 @@ button[class*="_newSession"]:hover {
   border-top: 1px solid var(--lg-hairline);
 }
 
+/* Host session-tree bottom fade (workspace module `…_fade`, a 24px absolute
+   strip): it fades scrolled rows into `--dsw-specific-sidebar-fill`, which is
+   a SOLID panel colour in the host look. Our columns are translucent glass, so
+   the token-tinted gradient reads as a dark shadow band at the sidebar's
+   bottom-left corner (the strip ends in #111827 against the glass fill).
+   The strip only makes sense against an opaque fill — neutralise it.
+   `[class$="_fade"]` matches the workspace fade exactly: the chat fades
+   (`…_fadeTop` / `…_fadeBottom`, mask-only) and `…_fading` / `…_faded` /
+   `…_fade-in` never end in `_fade` and stay untouched. */
+[class$="_fade"] {
+  background: transparent !important;
+}
+
 /* ----------------------------- composer ------------------------------- */
 [class*="_composerStack"] [class*="_card"],
 [class*="_composerSeat"] [class*="_card"] {
   border-radius: calc(22px * var(--lg-tune-radius)) !important;
   border: 1px solid rgba(255, 255, 255, calc(0.16 * var(--lg-tune-rim))) !important;
-  background-color: rgba(17, 21, 35, calc(0.86 * var(--lg-tune-glass))) !important;
+  background-color: rgb(17 21 35 / calc(0.86 * var(--lg-tune-glass))) !important;
   background-image: linear-gradient(150deg, rgba(255, 255, 255, calc(0.11 * var(--lg-tune-rim))) 0%, rgba(255, 255, 255, calc(0.02 * var(--lg-tune-rim))) 46%, rgba(255, 255, 255, calc(0.05 * var(--lg-tune-rim))) 100%);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, calc(0.28 * var(--lg-tune-rim))),
@@ -323,7 +396,7 @@ button[class*="_newSession"]:hover {
 [class*="_menuSurface"] {
   border-radius: calc(16px * var(--lg-tune-radius));
   border: 1px solid rgba(255, 255, 255, calc(0.14 * var(--lg-tune-rim))) !important;
-  background-color: rgba(15, 18, 30, calc(0.95 * var(--lg-tune-glass))) !important;
+  background-color: rgb(15 18 30 / calc(0.95 * var(--lg-tune-glass))) !important;
   background-image: linear-gradient(160deg, rgba(255, 255, 255, calc(0.07 * var(--lg-tune-rim))) 0%, rgba(255, 255, 255, calc(0.01 * var(--lg-tune-rim))) 48%, rgba(255, 255, 255, calc(0.04 * var(--lg-tune-rim))) 100%) !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, calc(0.16 * var(--lg-tune-rim))),
@@ -388,7 +461,7 @@ button[class*="_newSession"]:hover {
 
 /* --------------------------- transcript ------------------------------- */
 [class*="_bubble"] {
-  background-color: rgba(32, 40, 70, calc(0.92 * var(--lg-tune-glass))) !important;
+  background-color: rgb(32 40 70 / calc(0.92 * var(--lg-tune-glass))) !important;
   background-image: linear-gradient(145deg, rgba(124, 150, 255, calc(0.22 * var(--lg-tune-glass))) 0%, rgba(90, 106, 218, calc(0.10 * var(--lg-tune-glass))) 46%, rgba(148, 118, 244, calc(0.16 * var(--lg-tune-glass))) 100%) !important;
   border: 1px solid rgba(190, 205, 255, calc(0.22 * var(--lg-tune-rim))) !important;
   border-radius: calc(20px * var(--lg-tune-radius)) calc(20px * var(--lg-tune-radius)) calc(6px * var(--lg-tune-radius)) calc(20px * var(--lg-tune-radius)) !important;
@@ -514,15 +587,15 @@ select:focus-visible {
 
 /* ------------------------------ light mode ---------------------------- */
 html:has(body:not([data-ds-dark-theme])) {
-  background-color: #eef2fb !important;
-  background-image:
+  --lg-canvas-layers:
     radial-gradient(58vmax 58vmax at 12% 4%, rgba(56, 189, 248, calc(0.36 * var(--lg-tune-aurora))), transparent 70%),
     radial-gradient(52vmax 52vmax at 84% 0%, rgba(129, 140, 248, calc(0.30 * var(--lg-tune-aurora))), transparent 70%),
     radial-gradient(62vmax 62vmax at 90% 58%, rgba(167, 139, 250, calc(0.32 * var(--lg-tune-aurora))), transparent 72%),
     radial-gradient(52vmax 52vmax at 6% 88%, rgba(251, 113, 133, calc(0.20 * var(--lg-tune-aurora))), transparent 72%),
     radial-gradient(46vmax 46vmax at 68% 98%, rgba(251, 191, 36, calc(0.22 * var(--lg-tune-aurora))), transparent 74%),
-    radial-gradient(120% 100% at 50% 34%, rgba(255, 255, 255, 0) 46%, rgba(255, 255, 255, 0.42) 100%),
-    linear-gradient(160deg, #f4f7ff 0%, #e9eefb 60%, #e4e9f8 100%) !important;
+    radial-gradient(120% 100% at 50% 34%, rgba(255, 255, 255, 0) 46%, rgba(255, 255, 255, 0.42) 100%);
+  background-color: #eef2fb !important;
+  background-image: var(--lg-canvas-layers), linear-gradient(160deg, #f4f7ff 0%, #e9eefb 60%, #e4e9f8 100%) !important;
 }
 
 body:not([data-ds-dark-theme]) [class*="_sidebarCol"],
@@ -530,16 +603,47 @@ body:not([data-ds-dark-theme]) [class*="_centerCol"],
 body:not([data-ds-dark-theme]) [class*="_rightbarCol"],
 body:not([data-ds-dark-theme]) [class*="_rightCol"] {
   border-color: rgba(255, 255, 255, calc(0.85 * var(--lg-tune-rim))) !important;
-  background-color: rgba(255, 255, 255, calc(0.88 * var(--lg-tune-glass))) !important;
+  background-color: rgb(255 255 255 / calc(0.88 * var(--lg-tune-window))) !important;
   background-image: linear-gradient(155deg, rgba(255, 255, 255, calc(0.55 * var(--lg-tune-rim))) 0%, rgba(255, 255, 255, calc(0.22 * var(--lg-tune-rim))) 46%, rgba(255, 255, 255, calc(0.40 * var(--lg-tune-rim))) 100%);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, calc(0.95 * var(--lg-tune-rim))),
     0 16px 36px -30px rgba(30, 41, 89, calc(0.25 * var(--lg-tune-shadow)));
 }
 
+/* Light branch of the left-column shadow fix (1.9.3): same as the dark one
+   above — the sidebar keeps only its inset highlight, so no drop shadow can
+   leak around the bottom-left rounded corner. */
+body:not([data-ds-dark-theme]) [class*="_sidebarCol"] {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, calc(0.95 * var(--lg-tune-rim))) !important;
+}
+
+/* Left-sidebar frame switch (settings → 左侧栏玻璃面板): the host's own left
+   panel is a plain square area — no radius, no rim, no shadow, no fill of
+   its own — while its main panel is a rounded glass card, so the user picks.
+   OFF strips the LEFT column down to bare layout: square corners, no border,
+   no inset highlight / dispersion, no drop shadow, AND no fill layers
+   (background color + sheen gradient) so the window background — the aurora
+   canvas, or the desktop in reveal mode — shows straight through.
+   Center/right columns keep their full glass panel.
+   Must sit AFTER BOTH the dark group rule and the light-mode override above:
+   same (0,2,1) specificity + !important as the light rule, later wins. */
+html[data-lg-sidebar-frame="off"] [class*="_sidebarCol"] {
+  border-radius: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+  background-color: transparent !important;
+  background-image: none !important;
+}
+
+/* The footer fade scrim exists to blend content into the glass fill — with
+   the fill gone it would be a stray dark band over the transparent column. */
+html[data-lg-sidebar-frame="off"] [class*="_sidebarCol"] [class*="_footArea"] {
+  background: transparent !important;
+}
+
 body:not([data-ds-dark-theme]) [class*="_composerStack"] [class*="_card"],
 body:not([data-ds-dark-theme]) [class*="_composerSeat"] [class*="_card"] {
-  background-color: rgba(255, 255, 255, calc(0.90 * var(--lg-tune-glass))) !important;
+  background-color: rgb(255 255 255 / calc(0.90 * var(--lg-tune-glass))) !important;
   background-image: linear-gradient(150deg, rgba(255, 255, 255, calc(0.65 * var(--lg-tune-rim))) 0%, rgba(255, 255, 255, calc(0.28 * var(--lg-tune-rim))) 46%, rgba(255, 255, 255, calc(0.45 * var(--lg-tune-rim))) 100%) !important;
   border-color: rgba(255, 255, 255, calc(0.95 * var(--lg-tune-rim))) !important;
 }
@@ -549,7 +653,7 @@ body:not([data-ds-dark-theme]) [role="menu"],
 body:not([data-ds-dark-theme]) [role="dialog"],
 body:not([data-ds-dark-theme]) [class*="_dialog"],
 body:not([data-ds-dark-theme]) [class*="_menuSurface"] {
-  background-color: rgba(251, 252, 255, calc(0.96 * var(--lg-tune-glass))) !important;
+  background-color: rgb(251 252 255 / calc(0.96 * var(--lg-tune-glass))) !important;
   background-image: linear-gradient(160deg, rgba(255, 255, 255, calc(0.75 * var(--lg-tune-rim))) 0%, rgba(255, 255, 255, calc(0.35 * var(--lg-tune-rim))) 48%, rgba(255, 255, 255, calc(0.60 * var(--lg-tune-rim))) 100%) !important;
   border-color: rgba(255, 255, 255, calc(0.95 * var(--lg-tune-rim))) !important;
   box-shadow:
@@ -572,7 +676,7 @@ body:not([data-ds-dark-theme]) [class*="_toast_"] {
 }
 
 body:not([data-ds-dark-theme]) [class*="_bubble"] {
-  background-color: rgba(226, 232, 255, calc(0.94 * var(--lg-tune-glass))) !important;
+  background-color: rgb(226 232 255 / calc(0.94 * var(--lg-tune-glass))) !important;
   background-image: linear-gradient(145deg, rgba(199, 210, 254, calc(0.85 * var(--lg-tune-glass))) 0%, rgba(224, 231, 255, calc(0.70 * var(--lg-tune-glass))) 46%, rgba(233, 213, 255, calc(0.78 * var(--lg-tune-glass))) 100%) !important;
   border-color: rgba(255, 255, 255, calc(0.95 * var(--lg-tune-rim))) !important;
 }
@@ -676,6 +780,43 @@ body:not([data-ds-dark-theme]) ::-webkit-scrollbar-thumb:hover {
   color: var(--dsw-alias-label-tertiary);
   font-size: 11px;
   line-height: 1.5;
+}
+
+/* ------------------- window background layer (叠背景) ------------------- */
+[data-lg-settings] .lg-bg {
+  display: grid;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--lg-hairline);
+}
+
+[data-lg-settings] .lg-bg-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+[data-lg-settings] .lg-bg-row label {
+  color: var(--dsw-alias-label-primary-dimmed);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+[data-lg-settings] .lg-bg-row input[type="number"] {
+  width: 58px;
+  padding: 3px 6px;
+  border-radius: calc(8px * var(--lg-tune-radius));
+  border: 1px solid var(--lg-hairline);
+  background: var(--lg-badge-bg);
+  color: var(--dsw-alias-label-primary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+[data-lg-settings] .lg-bg-row input[type="range"] {
+  flex: 1;
+  min-width: 140px;
 }
 
 /* -------------------- window-glass patch (host actions) ------------------ */
