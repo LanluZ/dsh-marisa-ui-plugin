@@ -51,7 +51,15 @@ html {
    the layer survives "透出桌面壁纸": reveal mode turns the html canvas
    transparent, but the shell layer keeps tinting the window over the acrylic
    desktop. */
-html[data-lg-bg="custom"] [class*="_frame"] {
+/* Scope = the window SHELL frame only. The host ships a dozen `_frame` classes
+   and every component frame (chat flow `V4vHZW_frame`, turn rail, sidebar
+   browser / doc preview, attachment, question cards …) is nested INSIDE the
+   shell, so `:not([class*="_frame"] [class*="_frame"])` — "the outermost
+   frame" — keeps the tint on the shell while staying immune to hash renames.
+   Without the guard the substring selector also painted the window tint into
+   the chat flow frame, whose box is content-height and full-bleed inside the
+   conversation: a dark (light mode: white) slab behind the whole transcript. */
+html[data-lg-bg="custom"] [class*="_frame"]:not([class*="_frame"] [class*="_frame"]) {
   background: rgb(var(--lg-bg-r) var(--lg-bg-g) var(--lg-bg-b) / var(--lg-bg-a)) !important;
 }
 
@@ -160,6 +168,14 @@ html:has(body:not([data-ds-dark-theme])) {
   box-shadow: inset 0 0 0 1px var(--lg-window-rim) !important;
 }
 
+/* The rim is a WINDOW-edge treatment too: on nested component frames it drew a
+   faint rectangle outline (e.g. around the whole chat transcript once the
+   tint slab above is gone). Native shadows stay suppressed there exactly as
+   before — only the ring goes. */
+[class*="_frame"] [class*="_frame"] {
+  box-shadow: none !important;
+}
+
 /* Windows titlebar strip: aurora glass on the left, fading into the exact
    colour the native caption buttons sample (`--dsw-specific-sidebar-fill`) on
    the right, so minimise / maximise / close sit on a matching surface instead
@@ -250,10 +266,36 @@ html[data-lg-reveal="on"] [data-windows-titlebar] [class*="_frame"]::before {
   background: transparent !important;
 }
 
-/* header strip */
-[class*="_header"]:not([class*="_sectionHeader"]) {
+/* header strip. Code-block banner headers (`data-code-block-banner`) are part
+   of a code block and pick up NO theme styling — code blocks are excluded from
+   the theme entirely (1.10.2), and keeping their own fill is exactly what
+   makes the sticky code banner occlude the block scrolling beneath it. */
+[class*="_header"]:not([class*="_sectionHeader"], [data-code-block-banner]) {
   background: transparent !important;
   border-bottom: 1px solid var(--lg-hairline) !important;
+}
+
+/* ------------------- plugin-page sticky title bar (吸顶) ------------------ */
+/* The plugin page (插件页面) title bar is a morphing bar whose occluding
+   backdrop is a ::before filled with --dsw-alias-bg-base — a token this theme
+   flattens to transparent so the aurora shows through at rest. The host
+   toggles [data-scrolled] on the bar the moment it pins to the top (吸顶触发)
+   and drops it when the page scrolls back: cancel the transparency while
+   pinned so the content scrolling beneath is occluded, and once it unpins the
+   plain rule returns the transparent style (停止吸顶就返还样式).
+   1.10.3: the fill is translucent (半透明) and cross-fades in/out over 0.15s
+   via a background-color transition on the backdrop pseudo — one short
+   one-shot transition, no keyframes loop. */
+[class*="_pageBar"]::before {
+  transition: background-color 0.15s ease-in-out;
+}
+
+[class*="_pageBar"][data-scrolled]::before {
+  background: rgb(8 11 20 / 0.6) !important;
+}
+
+html:has(body:not([data-ds-dark-theme])) [class*="_pageBar"][data-scrolled]::before {
+  background: rgb(255 255 255 / 0.7) !important;
 }
 
 /* ----------------------------- sidebar -------------------------------- */
@@ -512,31 +554,15 @@ button[class*="_newSession"]:hover {
 }
 
 /* ------------------------- content surfaces ---------------------------- */
-/* Markdown / message content addressed through SEMANTIC tags only: pre, code,
-   blockquote, table, mark, kbd survive upstream class-hash churn, unlike
-   substring class matching. Every decoration is zero-layout — background
-   fills, border-colour swaps and inset box-shadow rings; no border width,
-   padding or margin is added, so text flow stays exactly as the host lays it
-   out. Fills come from the palette / theme tokens, so both schemes are
-   served by these single rules. */
-pre {
-  background-color: var(--dsw-alias-markdown-code-block) !important;
-  border-radius: calc(12px * var(--lg-tune-radius));
-  box-shadow:
-    inset 0 0 0 1px var(--lg-rim),
-    inset 0 1px 0 rgba(255, 255, 255, calc(0.10 * var(--lg-tune-rim))) !important;
-}
-
-code {
-  background: var(--lg-badge-bg) !important;
-  border-radius: calc(6px * var(--lg-tune-radius));
-}
-
-pre code {
-  background: transparent !important;
-  border-radius: 0 !important;
-}
-
+/* Markdown / message content addressed through SEMANTIC tags only: blockquote,
+   table, mark, kbd survive upstream class-hash churn, unlike substring class
+   matching. Every decoration is zero-layout — background fills, border-colour
+   swaps and inset box-shadow rings; no border width, padding or margin is
+   added, so text flow stays exactly as the host lays it out. Fills come from
+   the palette / theme tokens, so both schemes are served by these single
+   rules. Code blocks (pre / code) are DELIBERATELY absent (1.10.2): the
+   theme does not style code blocks at all, so their banner / body keep the
+   host's own opaque fills and the sticky code banner occludes correctly. */
 blockquote {
   background: var(--lg-hover) !important;
   box-shadow: inset 3px 0 0 var(--lg-quote-bar) !important;
@@ -782,12 +808,84 @@ body:not([data-ds-dark-theme]) ::-webkit-scrollbar-thumb:hover {
   line-height: 1.5;
 }
 
+/* ------------- style buttons (样式按钮) + collapsible detail cards -------- */
+/* Default view keeps only the 主题配色 style row visible; the 窗口透明度 and
+   背景叠层 cards collapse behind their 「详细设置」 buttons. */
+[data-lg-settings] .lg-style {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+[data-lg-settings] .lg-style-chip {
+  padding: 4px 14px;
+  border-radius: calc(8px * var(--lg-tune-radius));
+  border: 1px solid var(--lg-rim);
+  background: var(--lg-badge-bg);
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+[data-lg-settings] .lg-style-chip:hover:not(:disabled) {
+  background: var(--lg-hover-strong);
+}
+
+[data-lg-settings] .lg-style-chip[aria-pressed="true"] {
+  border-color: var(--dsw-alias-state-business-primary);
+  background: var(--lg-selected);
+  color: var(--dsw-alias-label-primary);
+}
+
+[data-lg-settings] .lg-style-chip:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+[data-lg-settings] .lg-card {
+  display: grid;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--lg-hairline);
+}
+
+[data-lg-settings] .lg-card-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+[data-lg-settings] .lg-card-title {
+  color: var(--dsw-alias-label-primary);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+[data-lg-settings] .lg-details-btn {
+  margin-left: auto;
+  padding: 4px 12px;
+  border-radius: calc(8px * var(--lg-tune-radius));
+  border: 1px solid var(--lg-rim);
+  background: var(--lg-badge-bg);
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+[data-lg-settings] .lg-details-btn:hover {
+  background: var(--lg-hover-strong);
+}
+
+[data-lg-settings] .lg-card-body {
+  display: grid;
+  gap: 10px;
+}
+
 /* ------------------- window background layer (叠背景) ------------------- */
 [data-lg-settings] .lg-bg {
   display: grid;
-  gap: 6px;
-  padding-top: 10px;
-  border-top: 1px solid var(--lg-hairline);
+  gap: 8px;
 }
 
 [data-lg-settings] .lg-bg-row {

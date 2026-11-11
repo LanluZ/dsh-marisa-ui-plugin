@@ -192,7 +192,6 @@ theme.css 直接引用的 token（单一事实来源）：
 | --- | --- |
 | `--dsw-specific-sidebar-fill` | Windows 标题条渐变的实心端（系统按钮取色） |
 | `--dsw-alias-label-primary` | 气泡文字色 |
-| `--dsw-alias-markdown-code-block` | `pre` 代码块底色 |
 | `--dsh-windows-titlebar-height` | 带标题条时 frame 顶部内边距 |
 
 tokens.js 覆盖的语义 token（每个 `{ light, dark }` 一对）：
@@ -226,12 +225,14 @@ tokens.js 覆盖的语义 token（每个 `{ light, dark }` 一对）：
 | `--dsw-alias-interactive-bg-active` | 交互按下 | `rgba(13,28,60,0.12)` | `rgba(255,255,255,0.14)` |
 | `--dsw-alias-state-business-primary` | 品牌主色 | `#3b6fe0` | `#8fb8ff` |
 | `--dsw-alias-state-business-tertiary` | 品牌主色弱底 | `rgba(59,111,224,0.12)` | `rgba(120,160,255,0.18)` |
-| `--dsw-alias-markdown-code-block` | 代码块底 | `rgba(255,255,255,0.82)` | `rgba(5,8,16,0.80)` |
 | `--dsw-alias-toast-bg` | toast 底 | `rgba(255,255,255,0.90)` | `rgba(14,18,31,0.94)` |
 | `--dsw-alias-toast-label` | toast 文字 | `#0c1322` | `#f4f8ff` |
 | `--dsw-alias-scrollbar-bg-l1` | 滚动条 | `rgba(15,30,60,0.18)` | `rgba(255,255,255,0.18)` |
 | `--dsw-alias-scrollbar-hover-l1` | 滚动条 hover | `rgba(15,30,60,0.30)` | `rgba(255,255,255,0.30)` |
 | `--dsw-alias-switch-thumb` | 开关滑块 | `#ffffff` | `#eaf0ff` |
+
+> 1.10.2 起 `--dsw-alias-markdown-code-block` **不再覆盖**（代码块完全退出主题，
+> 吸顶标题栏遮挡回归宿主原生填充），宿主默认值生效。
 
 > 完整精确值以 [plugin/src/tokens.js](../plugin/src/tokens.js) 为准（单一事实来源）。
 
@@ -288,6 +289,7 @@ tokens.js 覆盖的语义 token（每个 `{ light, dark }` 一对）：
 | tuning values | localStorage → `--lg-tune-*`，卸载时清除 |
 | wallpaper reveal | localStorage → `<html data-lg-reveal>`（画布透明），卸载时清除 |
 | sidebar frame | localStorage → `<html data-lg-sidebar-frame>`（左栏透明标记），卸载时恢复玻璃面板 |
+| DSH appearance bridge | `switchDshAppearance`（模块级钩子）→ `ctx.theme.setTheme`（1.12.0：深色/浅色样式按钮联动宿主「通用设置 → 外观」），卸载置空 |
 | settings dictionaries | `ctx.locale.register(NS, { zh, en })` |
 
 ### 3.4 消费的 ctx 服务
@@ -295,6 +297,7 @@ tokens.js 覆盖的语义 token（每个 `{ light, dark }` 一对）：
 | 服务 | 方法（签名） | 用途 |
 | --- | --- | --- |
 | `theme` | `overrideTokens(source: string, tokens: ThemeTokenOverrides): () => void` | 堆叠语义 token 覆盖层；source 被强制替换为本包 id |
+| `theme` | `setTheme(id: "light" \| "dark" \| "system")` | 切换 DSH 自身「通用设置 → 外观」偏好（1.12.0）：设置页「深色 / 浅色」按钮联动调用；走官方偏好写入口（持久化 + 广播 `theme/change`，外观行与全局配色即时跟随） |
 | `theme` | 事件 `'theme/change'(snapshot)` | 主题切换通知（本项目当前未订阅） |
 | `locale` | `register(ns: string, dicts: Record<locale, dict>): () => void` | 注册设置页文案 |
 | `slots` | `inject(key: string, factory: () => disposer): void` | 插槽注入（随 fiber 卸载级联） |

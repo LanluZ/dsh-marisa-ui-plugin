@@ -39,7 +39,9 @@ export const TOKENS = {
   "--dsw-alias-interactive-bg-active": { light: "rgba(13,28,60,0.12)", dark: "rgba(255,255,255,0.14)" },
   "--dsw-alias-state-business-primary": { light: "#3b6fe0", dark: "#8fb8ff" },
   "--dsw-alias-state-business-tertiary": { light: "rgba(59,111,224,0.12)", dark: "rgba(120,160,255,0.18)" },
-  "--dsw-alias-markdown-code-block": { light: "rgba(255,255,255,0.82)", dark: "rgba(5,8,16,0.80)" },
+  /* Code blocks carry NO theme styling (1.10.2): the code-block background
+     token stays on the host's opaque default so the sticky code banner and
+     block body occlude what scrolls beneath them. */
   "--dsw-alias-toast-bg": { light: "rgba(255,255,255,0.90)", dark: "rgba(14,18,31,0.94)" },
   "--dsw-alias-toast-label": { light: "#0c1322", dark: "#f4f8ff" },
   "--dsw-alias-scrollbar-bg-l1": { light: "rgba(15,30,60,0.18)", dark: "rgba(255,255,255,0.18)" },
