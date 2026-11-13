@@ -515,11 +515,24 @@ button[class*="_newSession"]:hover {
   border-radius: calc(12px * var(--lg-tune-radius));
 }
 
-[class*="_tab"]:not([class*="_tabs"]) {
+/* Tab CHIPS only (1.12.2). The old `[class*="_tab"]` was a matching bug: it
+   hit every class merely STARTING with "_tab" — the whole dockkit container
+   hierarchy (`_tabHost_3oazc_164 _pane_3oazc_211` is one section element,
+   plus `_tabCell` / `_tabLayout` / `_tabStrip` / `_tabTitle` …) and even the
+   markdown table classes `_tableFill` / `_tableScroll` ("_table" starts with
+   "_tab"). Hovering anywhere over a pane painted a filled rounded slab —
+   a "selected button" look on a non-button surface — and every one of those
+   containers carried a rounded clip that repainted on each frame of a pane
+   resize drag. `[class*="_tab_"]` matches only classes literally NAMED
+   `tab` (today: `_tab_3oazc_136`, `_tab_1lga9_1`, `_tab_1ocp1_37`). */
+[class*="_tab_"] {
   border-radius: calc(10px * var(--lg-tune-radius));
 }
 
-[class*="_tab"]:not([class*="_tabs"]):hover {
+/* Hover fill on the chips only. `_tabActive` keeps its own fill (hovering
+   the active tab no longer swaps its background), and quiet / floating-title
+   tabs stay fill-free exactly as the host defines them. */
+[class*="_tab_"]:not([class*="_tabActive"], [class*="_tabQuiet"], [class*="_floatTitle"]):hover {
   background: var(--lg-hover) !important;
 }
 
@@ -593,6 +606,35 @@ kbd {
   background: var(--lg-badge-bg) !important;
   box-shadow: inset 0 0 0 1px var(--lg-rim) !important;
   border-radius: calc(6px * var(--lg-tune-radius));
+}
+
+/* ------------------------ shortcut hint groups -------------------------- */
+/* Buttons / menu items / tooltips render one key chord as ONE wrapper: the
+   host's Keys component (dsh-web-frontend module 38b9q, consumed by the menu
+   module 1p5el) emits <span class="_keys_… [_shortcutKeys_…]"> holding one
+   <kbd> per key plus <kbd> "+" separators. The blanket kbd chip above must NOT
+   fire inside a chord — matching every <kbd> paints one rounded rectangle PER
+   STRING ("Ctrl" "Alt" "G" each in its own box). Matching-rule fix: the single
+   shared rounded rectangle is drawn on the chord wrapper (mirroring the host's
+   own "_joined_" look, with the chip padding it already uses) and the per-key
+   <kbd> children are stripped back to bare text. Substring class matching
+   survives upstream hash-suffix churn (38b9q / 1p5el). */
+[class*="_keys_"],
+[class*="_shortcutKeys"] {
+  background: var(--lg-badge-bg) !important;
+  box-shadow: inset 0 0 0 1px var(--lg-rim) !important;
+  border-radius: calc(6px * var(--lg-tune-radius)) !important;
+  padding-inline: 4px;
+}
+
+[class*="_keys_"] kbd,
+[class*="_shortcutKeys"] kbd {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  min-width: 0 !important;
+  padding: 0 !important;
 }
 
 /* --------------------------- focus visibility -------------------------- */

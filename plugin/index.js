@@ -12,18 +12,34 @@
  *
  * Patching strategy — SAME-LENGTH IN-PLACE REPLACEMENT:
  *   The `createWindow()` options region in `lib/main.js` is rewritten with an
- *   equal byte count (compact whitespace + trailing space padding). Because
- *   the archive length never changes, every asar header offset stays valid:
- *   no repack, no offset fixups, and the write touches a few hundred bytes.
+ *   equal byte count (compact whitespace + trailing space padding), and every
+ *   runtime `setBackgroundColor(chromeFallbackFill())` statement is rewritten
+ *   in place (statement + space padding to the same byte width). Because the
+ *   archive length never changes, every asar header offset stays valid: no
+ *   repack, no offset fixups, and the write touches a few hundred bytes.
  *   When the header carries an `integrity` record for `lib/main.js`, its
  *   `hash` / `blocks[0]` hexes are updated in place (same 64-char width) so
  *   the archive stays self-consistent even if a future build enables the
  *   embedded-asar-integrity fuse (currently OFF in this exe).
  *
+ * Shape-aware matching (why the recipe moved beyond two verbatim anchors):
+ *   recent DSH builds paint an opaque "workspace base" — the primary block
+ *   carries its own `backgroundColor: chromeFallbackFill(),` and the runtime
+ *   re-fills the window opaque (`enterWorkspace` before show, theme-updated
+ *   handler, macOS minimize fallback). An opaque fill covers the acrylic
+ *   material, and an injected duplicate `backgroundColor` key would lose to
+ *   the opaque one (last key wins in an object literal). The recipe therefore
+ *   recognises three verbatim region shapes — pristine-with-base,
+ *   pristine-without-base (older builds), and the legacy half-patch this
+ *   recipe's predecessor left behind — and converges all of them onto one
+ *   canonical patch: transparent base fill carrying `backgroundMaterial` on
+ *   the SAME key, transparent caption overlay, transparent runtime fills.
+ *
  * Safety rails:
  *   · every state is classified against verbatim anchors inside the region
- *     only, and the region must lie inside the `lib/main.js` blob located via
- *     the asar header — unknown builds are refused, never guessed at;
+ *     and the runtime-fill statements only, and the region must lie inside
+ *     the `lib/main.js` blob located via the asar header — unknown builds are
+ *     refused, never guessed at;
  *   · raw asar bytes are touched under a scoped `process.noAsar` toggle (the
  *     dsh runtime runs under Electron's asar-fs wrapping);
  *   · the backup is written atomically (tmp + rename) BEFORE any patch write;
@@ -49,29 +65,69 @@ const COLOR_TO = 'color: "#00000000",';
 
 // Semantic change A — the main window opts into the welcome window's acrylic
 // recipe (`backgroundColor: "#00000000"` + `backgroundMaterial: "acrylic"`).
+// Builds that paint the opaque workspace base carry their own
+// `backgroundColor: chromeFallbackFill(),` in the primary block: the recipe is
+// attached to THAT key (never inserted beside it — a duplicate
+// `backgroundColor` key would leave the opaque fill winning the literal).
+const BASE_FROM = "backgroundColor: chromeFallbackFill(),";
+const BASE_TO =
+  'backgroundColor: "#00000000",\n' +
+  '\t\t\tbackgroundMaterial: "acrylic",';
+
+// Older builds without the base fill: insert the pair right after the
+// primary-block opener instead.
 const SPREAD_FROM = "primary ? {\n";
 const SPREAD_TO =
   "primary ? {\n" +
   '\t\t\tbackgroundColor: "#00000000",\n' +
   '\t\t\tbackgroundMaterial: "acrylic",\n';
 
+// Legacy repair — the pre-shape-aware recipe inserted its pair BEFORE the base
+// fill on new builds, leaving the opaque key winning the object literal
+// (post-compaction text, as stored on disk). Recognised verbatim and repaired
+// by dropping the dead opaque key.
+const LEGACY_FROM =
+  'backgroundColor: "#00000000", backgroundMaterial: "acrylic", ' +
+  "backgroundColor: chromeFallbackFill(),";
+const LEGACY_TO = 'backgroundColor: "#00000000", backgroundMaterial: "acrylic",';
+
+// Semantic change C — the runtime re-fills the window with the opaque
+// workspace base (`enterWorkspace` before show, `updateBackground` on theme
+// change, macOS minimize fallback). Every occurrence goes transparent, in
+// place at the same byte width (statement + space padding).
+const FILL_FROM = "window.setBackgroundColor(chromeFallbackFill());";
+const FILL_BODY = 'window.setBackgroundColor("#00000000");';
+const FILL_TO = FILL_BODY + " ".repeat(FILL_FROM.length - FILL_BODY.length);
+// Hard gate for change C: every base-fill call site must match FILL_FROM
+// verbatim (catches reformatted / renamed call sites instead of skipping).
+const FILL_PROBE = "setBackgroundColor(chromeFallbackFill";
+
 // Region-scoped classification signatures (the welcome window also carries a
 // `backgroundMaterial`, so whole-file heuristics are never used).
-const SIG_PATCHED = "backgroundMaterial";
+const SIG_MATERIAL = 'backgroundMaterial: "acrylic"';
 const SIG_ORIGINAL = "chromeFallbackFill()";
 
-const ASAR_PATH = "D:\\Program Files (x86)\\dsh\\resources\\app.asar";
+const ASAR_PATH = process.env.DSH_LG_ASAR_PATH || "D:\\Program Files (x86)\\dsh\\resources\\app.asar";
 const BACKUP_PATH = ASAR_PATH + ".lg-backup";
 
-/** Build the patched region: apply the two semantic changes, compact layout
- *  whitespace (no string literal in this region spans lines), then pad with
- *  spaces back to the EXACT original byte length. */
+/** Build the patched region from any recognised shape (new base / old spread /
+ *  legacy half-patch): one canonical patch — transparent base fill carrying
+ *  `backgroundMaterial`, transparent overlay — compact layout whitespace (no
+ *  string literal in this region spans lines), then pad with spaces back to
+ *  the EXACT original byte length. */
 function buildPatchedRegion(region) {
-  if (!region.includes(COLOR_FROM) || !region.includes(SPREAD_FROM)) {
+  let out = region;
+  if (out.includes(LEGACY_FROM)) {
+    out = out.replace(LEGACY_FROM, LEGACY_TO);
+  } else if (out.includes(BASE_FROM)) {
+    out = out.replace(BASE_FROM, BASE_TO);
+    out = out.replace(COLOR_FROM, COLOR_TO);
+  } else if (out.includes(SPREAD_FROM) && out.includes(COLOR_FROM)) {
+    out = out.replace(SPREAD_FROM, SPREAD_TO);
+    out = out.replace(COLOR_FROM, COLOR_TO);
+  } else {
     throw new Error("patch anchors missing inside region");
   }
-  let out = region.replace(COLOR_FROM, COLOR_TO);
-  out = out.replace(SPREAD_FROM, SPREAD_TO);
   out = out.replace(/\n\t+/g, " "); // harvest whitespace for the additions
   if (Buffer.byteLength(out, "utf8") > Buffer.byteLength(region, "utf8")) {
     throw new Error("region too small for same-length patch");
@@ -80,10 +136,35 @@ function buildPatchedRegion(region) {
   return out + " ".repeat(pad);
 }
 
+/** Region state from verbatim in-region anchors only:
+ *  `patched`  — acrylic pair on the base fill, no fallback fill left;
+ *  `legacy`   — the predecessor recipe's half-patch (dead opaque key wins the
+ *               literal); inject repairs it in place, restore also accepts it;
+ *  `original` — recognised pristine shape (with or without the base fill);
+ *  `unknown`  — anything else: refused, never guessed at. */
 function classifyRegion(region) {
-  if (region.includes(SIG_PATCHED)) return "patched";
-  if (region.includes(SIG_ORIGINAL)) return "original";
+  const material = region.includes(SIG_MATERIAL);
+  const base = region.includes(SIG_ORIGINAL);
+  if (material && !base) return "patched";
+  if (material && base) return "legacy";
+  if (!material && base) return "original";
   return "unknown";
+}
+
+/** Runtime-fill state across the whole `lib/main.js` blob: `original` when
+ *  opaque base-fill calls survive and all match FILL_FROM verbatim,
+ *  `patched` when this recipe's transparent replacements are in place,
+ *  `absent` on builds that never carried the calls (nothing to do either
+ *  way), `unknown` on anything else — refused, never guessed at. */
+function classifyFill(blob) {
+  if (blob.includes(FILL_PROBE)) {
+    let fromCount = 0;
+    for (let at = blob.indexOf(FILL_FROM); at !== -1; at = blob.indexOf(FILL_FROM, at + 1)) fromCount += 1;
+    let probeCount = 0;
+    for (let at = blob.indexOf(FILL_PROBE); at !== -1; at = blob.indexOf(FILL_PROBE, at + 1)) probeCount += 1;
+    return fromCount > 0 && fromCount === probeCount ? "original" : "unknown";
+  }
+  return blob.includes(FILL_TO) ? "patched" : "absent";
 }
 
 /** Syntax-check the patched region as an object-literal body before any
@@ -223,12 +304,21 @@ function backupInfo() {
   return { exists: true, size, matchesCurrent: size === readStat(ASAR_PATH).size };
 }
 
-/** Snapshot of the patcher state, safe to serialize to the UI. */
+/** Snapshot of the patcher state, safe to serialize to the UI. `legacy` (the
+ *  predecessor recipe's half-patch) reports as `patched` — the settings page
+ *  keeps its three-state contract while 注入 repairs the region in place. */
 function status() {
   let state = "unknown";
   let error = null;
   try {
-    state = classifyRegion(inspect().region);
+    const view = inspect();
+    const fillState = classifyFill(view.blob);
+    const regionState = classifyRegion(view.region);
+    state = regionState === "legacy" ? "patched" : regionState;
+    if (fillState === "unknown") {
+      state = "unknown";
+      error = "runtime fill anchors unverified";
+    }
   } catch (e) {
     state = "unknown";
     error = String((e && e.message) || e);
@@ -264,25 +354,47 @@ function restoreFromBackup() {
   });
 }
 
-/** Inject the acrylic window patch. */
+/** Inject the acrylic window patch (idempotent: any recognised state —
+ *  original, legacy half-patch, partially filled — converges on the canonical
+ *  patch). */
 function injectPatch() {
   return serial(() => {
     const view = inspect();
-    const state = classifyRegion(view.region);
-    if (state === "patched") return { ok: true, state: "patched", message: "already-injected" };
-    if (state !== "original") return { ok: false, state, message: "unknown-host-build" };
+    const regionState = classifyRegion(view.region);
+    const fillState = classifyFill(view.blob);
+    const fillDone = fillState === "patched" || fillState === "absent";
+    if (regionState === "patched" && fillDone) {
+      return { ok: true, state: "patched", message: "already-injected" };
+    }
+    if (regionState === "unknown" || fillState === "unknown") {
+      return { ok: false, state: "unknown", message: "unknown-host-build" };
+    }
 
     ensureBackup(readStat(ASAR_PATH).size);
 
-    const patched = buildPatchedRegion(view.region);
-    try {
-      assertCompiles(patched);
-    } catch (error) {
-      return { ok: false, state: "original", message: "patch-refused: " + error.message };
-    }
     const newBlob = Buffer.from(view.blob); // copy
-    const relStart = view.regionStart - view.blobStart;
-    newBlob.write(patched, relStart, "utf8");
+    const writes = []; // { pos: absolute file offset, buf: same-length span }
+    if (regionState !== "patched") {
+      let patched;
+      try {
+        patched = buildPatchedRegion(view.region);
+        assertCompiles(patched);
+      } catch (error) {
+        return { ok: false, state: regionState === "legacy" ? "patched" : regionState, message: "patch-refused: " + error.message };
+      }
+      const relStart = view.regionStart - view.blobStart;
+      newBlob.write(patched, relStart, "utf8");
+      writes.push({ pos: view.regionStart, buf: Buffer.from(patched, "utf8") });
+    }
+    // Semantic change C — every runtime base-fill statement, in place.
+    for (let at = newBlob.indexOf(FILL_FROM); at !== -1; at = newBlob.indexOf(FILL_FROM, at + 1)) {
+      newBlob.write(FILL_TO, at, "utf8");
+      writes.push({ pos: view.blobStart + at, buf: Buffer.from(FILL_TO, "utf8") });
+    }
+    if (newBlob.includes(FILL_PROBE)) {
+      return { ok: false, state: "unknown", message: "patch-refused: runtime fill anchors missing" };
+    }
+
     let hexPositions = null;
     let newHash = null;
     try {
@@ -296,8 +408,7 @@ function injectPatch() {
       withRawFs(() => {
         const fd = fs.openSync(ASAR_PATH, "r+");
         try {
-          const regionBuf = Buffer.from(patched, "utf8");
-          fs.writeSync(fd, regionBuf, 0, regionBuf.length, view.regionStart);
+          for (const write of writes) fs.writeSync(fd, write.buf, 0, write.buf.length, write.pos);
           if (hexPositions) {
             const hexBuf = Buffer.from(newHash, "utf8");
             for (const pos of hexPositions) fs.writeSync(fd, hexBuf, 0, hexBuf.length, pos);
@@ -307,8 +418,11 @@ function injectPatch() {
           fs.closeSync(fd);
         }
       });
-      const verify = classifyRegion(inspect().region);
-      if (verify !== "patched") throw new Error("verify failed: " + verify);
+      const verify = inspect();
+      const verifyFill = classifyFill(verify.blob);
+      if (classifyRegion(verify.region) !== "patched" || (verifyFill !== "patched" && verifyFill !== "absent")) {
+        throw new Error("verify failed: " + classifyRegion(verify.region) + "/" + verifyFill);
+      }
     } catch (error) {
       try { restoreFromBackup(); } catch {}
       return { ok: false, state: "unknown", message: "write-failed: " + error.message };
@@ -321,17 +435,28 @@ function injectPatch() {
 function restorePatch() {
   return serial(() => {
     const asarSize = readStat(ASAR_PATH).size;
-    const state = classifyRegion(inspect().region);
-    if (state === "original") return { ok: true, state: "original", message: "already-original" };
-    if (state !== "patched") return { ok: false, state, message: "unknown-host-build" };
+    const view = inspect();
+    const regionState = classifyRegion(view.region);
+    const fillState = classifyFill(view.blob);
+    if (regionState === "unknown" || fillState === "unknown") {
+      return { ok: false, state: "unknown", message: "unknown-host-build" };
+    }
+    // `original` / `absent` fills both read as "pristine runtime fills".
+    const fillPristine = fillState === "original" || fillState === "absent";
+    if (regionState === "original" && fillPristine) {
+      return { ok: true, state: "original", message: "already-original" };
+    }
 
     const backup = backupInfo();
     if (!backup.exists) return { ok: false, state: "patched", message: "backup-missing" };
     if (backup.size !== asarSize) return { ok: false, state: "patched", message: "backup-version-mismatch" };
     try {
       restoreFromBackup();
-      const verify = classifyRegion(inspect().region);
-      if (verify !== "original") throw new Error("verify failed: " + verify);
+      const verify = inspect();
+      const verifyFill = classifyFill(verify.blob);
+      if (classifyRegion(verify.region) !== "original" || (verifyFill !== "original" && verifyFill !== "absent")) {
+        throw new Error("verify failed");
+      }
     } catch (error) {
       return { ok: false, state: "patched", message: "restore-failed: " + error.message };
     }

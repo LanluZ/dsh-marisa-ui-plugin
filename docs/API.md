@@ -122,6 +122,14 @@
 **状态** `state`：`original`（未注入）/ `patched`（已注入）/ `unknown`
 （找不到补丁锚点或不支持的 DSH 版本——任何写入都被拒绝）。
 
+**匹配方式（形状感知）**：补丁区识别三种逐字形状——新版"工作区底色"形状
+（primary 块自带 `backgroundColor: chromeFallbackFill(),`）、旧版无底色形状、
+以及旧配方遗留的半补丁形状——统一收敛到规范补丁（透明底色**同一把钥匙**挂
+`backgroundMaterial`，绝不插入重复 `backgroundColor` 键）；半补丁态对外仍报
+`patched`，点"注入"即原地修复。运行时 `window.setBackgroundColor(chromeFallbackFill())`
+调用点（enterWorkspace 展示前 / 主题切换 / macOS 最小化回退）同样等长转透明，
+否则运行时不透明填充会盖住亚克力；调用点若存在非逐字变体，注入整体拒绝。
+
 **结果** `message` 枚举：`already-injected` · `injected` · `already-original` ·
 `restored` · `unknown-host-build` · `backup-missing` · `backup-version-mismatch` ·
 `integrity-refused: …` · `patch-refused: …` · `write-failed: …` · `restore-failed: …`。
@@ -389,7 +397,7 @@ $env:DSH_DESKTOP_NODE_EXECUTABLE='D:\Program Files (x86)\dsh\DeepSeek Harness.ex
 
 | 窗口 | 平台 | 创建选项（`lib/main.js`） | 玻璃效果 |
 | --- | --- | --- | --- |
-| 主窗口 `createWindow()`（~L20103） | Windows | `titleBarStyle:"hidden"` + `titleBarOverlay{height:40}`；**无** `transparent` / `backgroundColor` / `backgroundMaterial` | 无（不透明窗口） |
+| 主窗口 `createWindow()`（~L20242） | Windows | `titleBarStyle:"hidden"` + `titleBarOverlay{height:40}`；**无** `transparent` / `backgroundMaterial`；新版另有不透明"工作区底色"`backgroundColor: chromeFallbackFill()`（~L20250）+ 运行时 `setBackgroundColor` 重填（enterWorkspace ~L21518、主题切换 ~L20292） | 无（不透明窗口，运行时填充会盖住亚克力） |
 | 主窗口 | macOS | `vibrancy:"sidebar"`、`backgroundColor:"#00000000"`（~L20124-26） | 有（系统 vibrancy） |
 | 欢迎窗口 `welcomeWindowOptions()`（~L16552） | Windows | `backgroundColor:"#00000000"` + `backgroundMaterial:"acrylic"` + `titleBarOverlay{color:"#00000000"}`（~L16563-81） | **有（亚克力，官方自用配方）** |
 | 登录窗口（~L18231） | 全部 | 普通带框窗口 | 无 |
@@ -421,6 +429,12 @@ $env:DSH_DESKTOP_NODE_EXECUTABLE='D:\Program Files (x86)\dsh\DeepSeek Harness.ex
   titleBarOverlay: { height: 40, color: "#00000000", symbolColor: /* 按主题 */ }
 } : {}
 ```
+
+> 注：新版 DSH 若自带 `backgroundColor: chromeFallbackFill(),`（工作区底色），
+> 注入是**改写这一把钥匙**而非在旁边插入（对象字面量重复键后者胜，插入会被
+> 不透明底色压掉——旧配方正是栽在这里）；运行时 `setBackgroundColor(chromeFallbackFill())`
+> 的各处重填（enterWorkspace / 主题切换 / macOS 最小化回退）也一并等长转
+> 透明，否则展示前的重填会把亚克力盖回实色。
 
 开启后本插件的 §1.4 reveal 开关即完整生效：透明画布 + 玻璃面板透出桌面壁纸，
 标题条渐隐自动改为两端透明（theme.css 已备好）。

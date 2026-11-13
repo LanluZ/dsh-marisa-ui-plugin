@@ -12,7 +12,7 @@ dsh plugin --profile web add github:LanluZ/dsh-marisa-ui-plugin
 桌面端把 `--profile web` 换成 `--profile desktop`。
 
 安装后**完全退出 DeepSeek Harness 再重新打开**生效 —— 只按 `Ctrl+R` 可能仍在用旧 bundle 缓存。
-确认版本：开发者工具控制台应看到 `[魔理沙UI] active v1.9.11`。
+确认版本：开发者工具控制台应看到 `[魔理沙UI] active v1.12.2`。
 
 ## 能力
 
