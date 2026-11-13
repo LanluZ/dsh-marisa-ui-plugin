@@ -369,16 +369,20 @@ button[class*="_newSession"]:hover {
   border-top: 1px solid var(--lg-hairline);
 }
 
-/* Host session-tree bottom fade (workspace module `…_fade`, a 24px absolute
-   strip): it fades scrolled rows into `--dsw-specific-sidebar-fill`, which is
+/* Host session-tree bottom fade (sidebar module, a 24px absolute strip): it
+   fades scrolled rows into `--dsw-specific-sidebar-fill`, which is
    a SOLID panel colour in the host look. Our columns are translucent glass, so
    the token-tinted gradient reads as a dark shadow band at the sidebar's
    bottom-left corner (the strip ends in #111827 against the glass fill).
    The strip only makes sense against an opaque fill — neutralise it.
-   `[class$="_fade"]` matches the workspace fade exactly: the chat fades
-   (`…_fadeTop` / `…_fadeBottom`, mask-only) and `…_fading` / `…_faded` /
-   `…_fade-in` never end in `_fade` and stay untouched. */
-[class$="_fade"] {
+   Host naming drifted with the 0.2.2 rebuild: the strip class became
+   `…_scrollFade` (`wtg9ga_scrollFade` today), so the end-anchored
+   `[class$="_fade"]` alone stopped matching and the band came back — keep
+   BOTH matchers so either naming wins. The chat fades (`…_fadeTop` /
+   `…_fadeBottom`, mask-only) and `…_fading` / `…_faded` / `…_fade-in`
+   match neither arm and stay untouched. */
+[class$="_fade"],
+[class*="scrollFade"] {
   background: transparent !important;
 }
 
