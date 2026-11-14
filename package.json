@@ -15,7 +15,8 @@
   "files": [
     "plugin",
     "README.md",
-    "docs/API.md"
+    "docs/API.md",
+    "docs/assets/preview.webp"
   ],
   "dsh": {
     "bundle": {

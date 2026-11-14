@@ -60,7 +60,7 @@ const rootPkg = {
 		"./icon": "./plugin/icon.svg",
 		"./package.json": "./package.json"
 	},
-	files: ["plugin", "README.md", "docs/API.md"],
+	files: ["plugin", "README.md", "docs/API.md", "docs/assets/preview.webp"],
 	dsh: {
 		bundle: { patch: "./plugin/" + String(pkg.dsh.bundle.patch).replace(/^\.\//, "") },
 		client: pkg.dsh.client
