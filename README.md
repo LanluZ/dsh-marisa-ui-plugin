@@ -25,7 +25,7 @@ dsh plugin --profile web add github:LanluZ/dsh-marisa-ui-plugin
 | 运行时（桌面端） | Electron 44.7.0 |
 
 
-## 星标增长图
+## Star
 
 [![Star History](https://api.star-history.com/svg?repos=LanluZ/dsh-marisa-ui-plugin&type=Date)](https://star-history.com/#LanluZ/dsh-marisa-ui-plugin&Date)
 
