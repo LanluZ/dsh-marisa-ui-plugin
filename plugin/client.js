@@ -2,12 +2,12 @@
    plugin/src/{theme.css,tokens.js,client-body.js}.
    Do not edit by hand; edit the sources and rerun the build. */
 window.__ModuleLoader__.load({
-	id: "@local/dsh-ui-liquidglass",
+	id: "dsh-marisa-ui-plugin",
 	factory: (require) => {
 		var module = { exports: {} };
 		var exports = module.exports;
 		Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
-		const PLUGIN_ID = "@local/dsh-ui-liquidglass";
+		const PLUGIN_ID = "dsh-marisa-ui-plugin";
 		const VERSION = "1.12.3";
 		/** Alias-token override layers, one light/dark pair per token. */
 		const TOKENS = {

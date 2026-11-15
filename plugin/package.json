@@ -1,7 +1,6 @@
 {
-  "name": "@local/dsh-ui-liquidglass",
+  "name": "dsh-marisa-ui-plugin",
   "version": "1.12.3",
-  "private": true,
   "type": "module",
   "description": "Marisa UI: a static, zero-blur aurora-glass theme for the DeepSeek Harness web UI — frosted panels, specular rims, chromatic edges and a drifting-look aurora backdrop without per-frame rendering cost.",
   "main": "index.js",

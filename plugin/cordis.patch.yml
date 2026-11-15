@@ -5,4 +5,4 @@
 # window-glass patcher's routes on the dsh web server.
 - insert:
     - id: ui-liquidglass
-      name: '@local/dsh-ui-liquidglass'
+      name: 'dsh-marisa-ui-plugin'

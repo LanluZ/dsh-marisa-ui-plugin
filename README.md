@@ -1,6 +1,6 @@
 # 魔理沙UI
 
-> DeepSeek Harness 网页端的极光玻璃主题插件（`@local/dsh-ui-liquidglass`）
+> DeepSeek Harness 网页端的极光玻璃主题插件（`dsh-marisa-ui-plugin`）
 
 ## 预览
 
@@ -10,7 +10,7 @@
 ## 安装
 
 ```powershell
-dsh plugin --profile web add github:LanluZ/dsh-marisa-ui-plugin
+dsh plugin --profile web add dsh-marisa-ui-plugin
 ```
 
 - **窗口玻璃注入仅 Windows**（需改写安装目录 `app.asar`）
