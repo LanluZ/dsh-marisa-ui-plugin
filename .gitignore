@@ -14,3 +14,6 @@ Desktop.ini
 docs/README.md
 plugin/README.md
 tools/probes/README.md
+
+# Scratch space for one-off investigation scripts / dumps (never publish)
+_tmp/

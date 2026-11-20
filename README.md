@@ -19,10 +19,13 @@ dsh plugin --profile web add dsh-marisa-ui-plugin
 
 | 组件 | 版本 |
 | --- | --- |
-| DeepSeek Harness | 0.2.2-rc3 |
-| 插件 | v1.12.3 |
+| DeepSeek Harness | 0.2.2-rc5 |
+| 插件 | v1.13.0 |
 | `@deepseek-ai/cordis`（peerDependency） | `~4.1.0` |
 | 运行时（桌面端） | Electron 44.7.0 |
+
+> 兼容性：已在 **DSH 0.2.2-rc5** 上验证通过（插件 v1.13.0，含设置页视觉重设计与
+> 设置窗体真实磨砂；此前适配基准为 0.2.2-rc3 / 插件 v1.12.3）。
 
 
 ## Star

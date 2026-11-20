@@ -428,6 +428,8 @@ function SettingsPage(props) {
   const [patchState, setPatchState] = React.useState(null);
   const [patchBusy, setPatchBusy] = React.useState(false);
   const [patchMsg, setPatchMsg] = React.useState("");
+  /** Tone of the last patcher message — "ok" | "error" (inline note styling). */
+  const [patchTone, setPatchTone] = React.useState("ok");
   /** Last user-tweaked parameter set per style scope (the 「自定义」 target). */
   const custom = React.useRef({ theme: null, window: null, bg: null });
   /** Last explicitly picked built-in scheme ("dark" | "light"); null = 深色,
@@ -438,17 +440,23 @@ function SettingsPage(props) {
   React.useEffect(() => {
     callHost("status")
       .then((s) => setPatchState(s))
-      .catch((e) => setPatchMsg(t("liquidglass.winpatch.fail") + ": " + String((e && e.message) || e)));
+      .catch((e) => {
+        setPatchTone("error");
+        setPatchMsg(t("liquidglass.winpatch.fail") + ": " + String((e && e.message) || e));
+      });
   }, []);
   const runPatch = async (action) => {
     if (patchBusy) return;
     setPatchBusy(true);
+    setPatchTone("ok");
     setPatchMsg(t("liquidglass.winpatch.busy"));
     try {
       const res = await callHost(action);
       const key = res && PATCH_MSG_KEYS[res.message];
+      setPatchTone("ok");
       setPatchMsg(key ? t(key) : String((res && res.message) || ""));
     } catch (e) {
+      setPatchTone("error");
       setPatchMsg(t("liquidglass.winpatch.fail") + ": " + String((e && e.message) || e));
     }
     try {
@@ -639,6 +647,24 @@ function SettingsPage(props) {
     ["shadow", 0, 150],
     ["focus", 0, 150]
   ];
+  /** Section heading: mono index + title (the page's editorial rhythm). */
+  const cardHeading = (index, title) =>
+    React.createElement(
+      "div",
+      { className: "lg-card-heading" },
+      React.createElement("span", { className: "lg-card-index", "aria-hidden": "true" }, index),
+      React.createElement("div", { className: "lg-card-title" }, title)
+    );
+
+  /** Patch-status dot state: patched | original | unknown ("" while loading). */
+  const patchStateKind = !patchState
+    ? ""
+    : patchState.state === "patched"
+      ? "patched"
+      : patchState.state === "original"
+        ? "original"
+        : "unknown";
+
   const detailsButton = (open, onToggle) =>
     React.createElement(
       "button",
@@ -649,11 +675,17 @@ function SettingsPage(props) {
   return React.createElement(
     "div",
     { "data-lg-settings": "" },
+    /* ---- page head: the one display moment (name set large) + version meta ---- */
     React.createElement(
       "div",
       { className: "lg-tune-head" },
-      React.createElement("div", { className: "lg-tune-title" }, t("liquidglass.title")),
-      React.createElement("div", { className: "lg-tune-desc" }, t("liquidglass.desc"))
+      React.createElement(
+        "div",
+        { className: "lg-tune-headline" },
+        React.createElement("div", { className: "lg-tune-title" }, t("liquidglass.title")),
+        React.createElement("div", { className: "lg-tune-version" }, "v" + VERSION)
+      ),
+      t("liquidglass.desc") ? React.createElement("div", { className: "lg-tune-desc" }, t("liquidglass.desc")) : null
     ),
     /* -------------------------- 主题配色 (always visible) -------------------------- */
     React.createElement(
@@ -662,10 +694,10 @@ function SettingsPage(props) {
       React.createElement(
         "div",
         { className: "lg-card-bar" },
-        React.createElement("div", { className: "lg-card-title" }, t("liquidglass.theme.title")),
+        cardHeading("01", t("liquidglass.theme.title")),
         schemeButtons(themeStyle, themeStyle === "custom" || custom.current.theme !== null, pickThemeStyle)
       ),
-      React.createElement("div", { className: "lg-tune-hint" }, t("liquidglass.theme.desc"))
+      t("liquidglass.theme.desc") ? React.createElement("div", { className: "lg-tune-hint" }, t("liquidglass.theme.desc")) : null
     ),
     /* ------------------------- 窗口透明度 (details collapsed) ----------------------- */
     React.createElement(
@@ -674,7 +706,7 @@ function SettingsPage(props) {
       React.createElement(
         "div",
         { className: "lg-card-bar" },
-        React.createElement("div", { className: "lg-card-title" }, t("liquidglass.window.title")),
+        cardHeading("02", t("liquidglass.window.title")),
         styleButtons(windowIsDefault, !windowIsDefault || custom.current.window !== null, pickWindowStyle),
         detailsButton(openWindow, () => setOpenWindow((v) => !v))
       ),
@@ -682,7 +714,6 @@ function SettingsPage(props) {
         ? React.createElement(
             "div",
             { className: "lg-card-body" },
-            React.createElement("div", { className: "lg-tune-desc" }, t("liquidglass.desc")),
             React.createElement(
               "div",
               { className: "lg-tune-grid" },
@@ -690,7 +721,12 @@ function SettingsPage(props) {
                 React.createElement(
                   "div",
                   { className: "lg-tune-row", key },
-                  React.createElement("label", { className: "lg-tune-label", htmlFor: "lg-tune-" + key }, t("liquidglass." + key)),
+                  React.createElement(
+                    "div",
+                    { className: "lg-tune-row-head" },
+                    React.createElement("label", { className: "lg-tune-label", htmlFor: "lg-tune-" + key }, t("liquidglass." + key)),
+                    React.createElement("span", { className: "lg-tune-value" }, tuning[key] + "%")
+                  ),
                   React.createElement("input", {
                     id: "lg-tune-" + key,
                     type: "range",
@@ -698,35 +734,49 @@ function SettingsPage(props) {
                     max: String(max),
                     step: "5",
                     value: String(tuning[key]),
+                    style: { "--pct": (((tuning[key] - min) / (max - min)) * 100).toFixed(1) + "%" },
                     onChange: (event) => update(key, Number(event.target.value))
-                  }),
-                  React.createElement("span", { className: "lg-tune-value" }, tuning[key] + "%")
+                  })
                 )
               )
             ),
             React.createElement(
               "div",
               { className: "lg-tune-toggle" },
-              React.createElement("label", { className: "lg-tune-label", htmlFor: "lg-tune-reveal" }, t("liquidglass.reveal")),
-              React.createElement("input", {
-                id: "lg-tune-reveal",
-                type: "checkbox",
-                checked: reveal,
-                onChange: (event) => toggleReveal(event.target.checked)
-              }),
-              React.createElement("div", { className: "lg-tune-hint" }, t("liquidglass.revealHint"))
+              React.createElement(
+                "div",
+                { className: "lg-tune-toggle-row" },
+                React.createElement("label", { className: "lg-tune-label", htmlFor: "lg-tune-reveal" }, t("liquidglass.reveal")),
+                React.createElement("input", {
+                  id: "lg-tune-reveal",
+                  type: "checkbox",
+                  className: "lg-switch",
+                  checked: reveal,
+                  onChange: (event) => toggleReveal(event.target.checked)
+                })
+              ),
+              t("liquidglass.revealHint")
+                ? React.createElement("div", { className: "lg-tune-hint" }, t("liquidglass.revealHint"))
+                : null
             ),
             React.createElement(
               "div",
               { className: "lg-tune-toggle" },
-              React.createElement("label", { className: "lg-tune-label", htmlFor: "lg-tune-sidebar-frame" }, t("liquidglass.sidebarFrame")),
-              React.createElement("input", {
-                id: "lg-tune-sidebar-frame",
-                type: "checkbox",
-                checked: sidebarFrame,
-                onChange: (event) => toggleSidebarFrame(event.target.checked)
-              }),
-              React.createElement("div", { className: "lg-tune-hint" }, t("liquidglass.sidebarFrameHint"))
+              React.createElement(
+                "div",
+                { className: "lg-tune-toggle-row" },
+                React.createElement("label", { className: "lg-tune-label", htmlFor: "lg-tune-sidebar-frame" }, t("liquidglass.sidebarFrame")),
+                React.createElement("input", {
+                  id: "lg-tune-sidebar-frame",
+                  type: "checkbox",
+                  className: "lg-switch",
+                  checked: sidebarFrame,
+                  onChange: (event) => toggleSidebarFrame(event.target.checked)
+                })
+              ),
+              t("liquidglass.sidebarFrameHint")
+                ? React.createElement("div", { className: "lg-tune-hint" }, t("liquidglass.sidebarFrameHint"))
+                : null
             )
           )
         : null
@@ -738,7 +788,7 @@ function SettingsPage(props) {
       React.createElement(
         "div",
         { className: "lg-card-bar" },
-        React.createElement("div", { className: "lg-card-title" }, t("liquidglass.bg.title")),
+        cardHeading("03", t("liquidglass.bg.title")),
         styleButtons(bgIsBuiltin, !bgIsBuiltin || custom.current.bg !== null, pickBgStyle),
         detailsButton(openBg, () => setOpenBg((v) => !v))
       ),
@@ -746,10 +796,15 @@ function SettingsPage(props) {
         ? React.createElement(
             "div",
             { className: "lg-bg" },
-            React.createElement("div", { className: "lg-tune-desc" }, t("liquidglass.bg.desc")),
+            t("liquidglass.bg.desc") ? React.createElement("div", { className: "lg-tune-desc" }, t("liquidglass.bg.desc")) : null,
             React.createElement(
               "div",
               { className: "lg-bg-row" },
+              React.createElement("div", {
+                className: "lg-bg-swatch",
+                "aria-hidden": "true",
+                style: { background: "rgb(" + bg.r + " " + bg.g + " " + bg.b + " / " + (bg.a / 100).toFixed(2) + ")" }
+              }),
               React.createElement("label", { htmlFor: "lg-bg-r" }, "R"),
               bgNum("r", 0, 255),
               React.createElement("label", { htmlFor: "lg-bg-g" }, "G"),
@@ -765,12 +820,13 @@ function SettingsPage(props) {
                 step: "5",
                 value: String(bg.a),
                 "aria-label": t("liquidglass.bg.a"),
+                style: { "--pct": bg.a + "%" },
                 onChange: (event) => updateBg("a", Number(event.target.value))
               })
             ),
             React.createElement(
               "div",
-              { className: "lg-tune-hint" },
+              { className: "lg-bg-preview" },
               "rgba(" + bg.r + ", " + bg.g + ", " + bg.b + ", " + (bg.a / 100).toFixed(2) + ") · " +
                 (bgEquals(bg, BG_DEFAULT)
                   ? t("liquidglass.style.dark")
@@ -784,12 +840,12 @@ function SettingsPage(props) {
     /* --------------- 窗口玻璃（系统级）— outer level, always visible ---------------- */
     React.createElement(
       "div",
-      { className: "lg-card" },
-      React.createElement("div", { className: "lg-card-title" }, t("liquidglass.winpatch.title")),
+      { className: "lg-card lg-patch-card" },
+      React.createElement("div", { className: "lg-card-bar" }, cardHeading("04", t("liquidglass.winpatch.title"))),
       React.createElement("div", { className: "lg-tune-desc" }, t("liquidglass.winpatch.desc")),
       React.createElement(
         "div",
-        { className: "lg-patch-status" },
+        { className: "lg-patch-status", "data-state": patchStateKind || undefined },
         patchState
           ? (patchState.state === "patched"
               ? t("liquidglass.winpatch.statePatched")
@@ -808,16 +864,18 @@ function SettingsPage(props) {
         { className: "lg-patch-actions" },
         React.createElement(
           "button",
-          { type: "button", className: "lg-tune-reset", disabled: patchBusy, onClick: () => runPatch("inject") },
+          { type: "button", className: "lg-btn lg-btn-primary", disabled: patchBusy, onClick: () => runPatch("inject") },
           t("liquidglass.winpatch.inject")
         ),
         React.createElement(
           "button",
-          { type: "button", className: "lg-tune-reset", disabled: patchBusy, onClick: () => runPatch("restore") },
+          { type: "button", className: "lg-btn lg-btn-ghost", disabled: patchBusy, onClick: () => runPatch("restore") },
           t("liquidglass.winpatch.restore")
         )
       ),
-      patchMsg ? React.createElement("div", { className: "lg-patch-msg" }, patchMsg) : null
+      patchMsg
+        ? React.createElement("div", { className: "lg-patch-msg", "data-tone": patchTone }, patchMsg)
+        : null
     )
   );
 }

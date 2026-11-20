@@ -1,8 +1,8 @@
 {
   "name": "dsh-marisa-ui-plugin",
-  "version": "1.12.3",
+  "version": "1.13.0",
   "type": "module",
-  "description": "Marisa UI: a static, zero-blur aurora-glass theme for the DeepSeek Harness web UI — frosted panels, specular rims, chromatic edges and a drifting-look aurora backdrop without per-frame rendering cost.",
+  "description": "Marisa UI: a static aurora-glass theme for the DeepSeek Harness web UI — frosted panels, specular rims, chromatic edges and a drifting-look aurora backdrop without per-frame rendering cost.",
   "repository": {
     "type": "git",
     "url": "https://github.com/LanluZ/dsh-marisa-ui-plugin.git"

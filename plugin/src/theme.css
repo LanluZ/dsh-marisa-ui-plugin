@@ -2,7 +2,10 @@
    DSH Marisa UI — theme layer (performance edition)
    -------------------------------------------------------------------------
    Runtime budget rules:
-     · no backdrop-filter / filter / mix-blend-mode anywhere;
+     · no backdrop-filter / filter / mix-blend-mode, with exactly ONE
+       documented exception: the host settings window panel — a single fixed
+       800px modal, opt-in per surface (see "settings window: real frosted
+       glass" below). Nothing else may sample the backdrop;
      · no CSS animations, no pointer-driven JS, no extra DOM layers;
      · the aurora is one static paint on the document canvas (html), so it is
        cached by the compositor and never repainted by scrolling or streaming;
@@ -139,6 +142,22 @@ html {
   /* RGB triple behind the titlebar fade; the opaque end samples the exact
      caption-button colour via `--dsw-specific-sidebar-fill`. */
   --lg-titlebar-rgb: 17 24 39;
+
+  /* Settings-page palette (v1.13.0): ONE accent — teal below 80% saturation,
+     never purple neon — plus its quiet steps. The accent carries no gain:
+     functional colour never dims with the glass master. */
+  --lg-set-surface: rgb(255 255 255 / calc(0.055 * var(--lg-tune-glass)));
+  --lg-set-track: rgb(255 255 255 / calc(0.11 * var(--lg-tune-glass)));
+  --lg-set-accent: rgb(45 212 191);
+  --lg-set-accent-soft: rgb(45 212 191 / 0.14);
+  --lg-set-accent-line: rgb(45 212 191 / 0.45);
+  --lg-set-accent-text: rgb(94 234 212);
+  --lg-set-accent-ink: rgb(4 47 46);
+  --lg-set-knob: rgb(226 232 240);
+  --lg-set-knob-shadow: 0 1px 2px rgb(2 20 24 / 0.35);
+  --lg-set-card-shadow: 0 22px 46px -28px rgb(2 20 24 / calc(0.55 * var(--lg-tune-shadow)));
+  --lg-set-danger: rgb(251 113 133);
+  --lg-set-thumb-hi: rgb(255 255 255 / 0.35);
 }
 
 html:has(body:not([data-ds-dark-theme])) {
@@ -158,6 +177,20 @@ html:has(body:not([data-ds-dark-theme])) {
   --lg-bg-g: 242;
   --lg-bg-b: 251;
   --lg-bg-a: 1;
+
+  /* Settings-page palette, light steps (same single teal accent). */
+  --lg-set-surface: rgb(255 255 255 / calc(0.55 * var(--lg-tune-glass)));
+  --lg-set-track: rgb(30 41 89 / calc(0.15 * var(--lg-tune-glass)));
+  --lg-set-accent: rgb(15 118 110);
+  --lg-set-accent-soft: rgb(15 118 110 / 0.10);
+  --lg-set-accent-line: rgb(15 118 110 / 0.35);
+  --lg-set-accent-text: rgb(13 110 102);
+  --lg-set-accent-ink: rgb(255 255 255);
+  --lg-set-knob: rgb(255 255 255);
+  --lg-set-knob-shadow: 0 1px 2px rgb(30 41 89 / 0.28);
+  --lg-set-card-shadow: 0 22px 46px -28px rgb(30 41 89 / calc(0.35 * var(--lg-tune-shadow)));
+  --lg-set-danger: rgb(190 24 93);
+  --lg-set-thumb-hi: rgb(255 255 255 / 0.5);
 }
 
 /* ---------------------------- app shell ------------------------------- */
@@ -449,6 +482,30 @@ button[class*="_newSession"]:hover {
     0 20px 46px -26px rgba(0, 0, 0, calc(0.85 * var(--lg-tune-shadow))) !important;
 }
 
+/* ------------------ settings window: real frosted glass ------------------ */
+/* The ONE backdrop-filter in the plugin (see the header rules). The host's
+   settings modal is a fixed 800px card behind a dim-only scrim (`body` ships
+   `--dsw-mask-blur: none`), so the dialog reads as a flat opaque slab. Here
+   the panel itself becomes the glass: the fill drops to a semi-transparent
+   tint and `backdrop-filter` blurs the (masked) app behind it, so the blur
+   shows THROUGH the card instead of sitting in a separate layer.
+   · Scope — the settings panel only. The selector anchors on the card's own
+     `role="dialog"` plus the settings nav (`_navCell`), under an overlay, so
+     no other modal can inherit a blur layer. The descendant combinator (not
+     `>`) keeps it working whether the host wraps the card directly or adds a
+     portal shell between overlay and panel.
+   · Substring classes on purpose: the host hashes (`AnXs9G_*`) change between
+     DSH builds, the trailing names do not.
+   · One static layer: the card is fixed, its inner grid areas (`_nav`,
+     `_header`, `_options`) paint no fill of their own, so the filter covers
+     the whole card once and scrolling inside `_options` never re-runs it.
+   · Alpha still rides `--lg-tune-glass`, so the Settings tuning knob fades the
+     card the same way it fades every other glass surface. */
+[class*="_overlay"] [class*="_panel"][role="dialog"]:has([class*="_navCell"]) {
+  background-color: rgb(15 18 30 / calc(0.58 * var(--lg-tune-glass))) !important;
+  backdrop-filter: blur(28px) saturate(160%);
+}
+
 [data-menu-material] [class*="_item"],
 [role="menu"] [role="menuitem"],
 [class*="_menuItem"] {
@@ -733,6 +790,15 @@ body:not([data-ds-dark-theme]) [class*="_menuSurface"] {
     0 20px 46px -30px rgba(30, 41, 89, calc(0.28 * var(--lg-tune-shadow))) !important;
 }
 
+/* Light branch of the frosted settings window (dark rule above). Same blur,
+   porcelain fill instead of the midnight tint — kept deliberately paler than
+   the light dialog default so the card still separates from the dimmed app
+   behind it instead of blending into the scrim. */
+body:not([data-ds-dark-theme]) [class*="_overlay"] [class*="_panel"][role="dialog"]:has([class*="_navCell"]) {
+  background-color: rgb(251 252 255 / calc(0.62 * var(--lg-tune-glass))) !important;
+  backdrop-filter: blur(28px) saturate(160%);
+}
+
 body:not([data-ds-dark-theme]) [class*="_toast_"] {
   border-color: rgba(255, 255, 255, calc(0.92 * var(--lg-tune-rim))) !important;
   background-image: linear-gradient(
@@ -766,121 +832,273 @@ body:not([data-ds-dark-theme]) ::-webkit-scrollbar-thumb:hover {
    own nav entry beside General / Models / Plugins). Scoped by
    [data-lg-settings] so it can never style anything outside its own
    registration. Colours come from host label tokens and the shared palette,
-   so both schemes stay coherent. */
+   so both schemes stay coherent.
+   v1.13.0 redesign — stitch-skill design principles absorbed into the glass
+   identity:
+   · typography — one display moment (the page name set large, track-tight),
+     weight-driven hierarchy, every numeric readout in a mono face with
+     tabular figures (the page is data-dense, mono numbers are mandatory);
+   · one accent — teal under 80% saturation, used quietly (pressed chips,
+     slider fills, switch, focus) with exactly ONE loud moment: the primary
+     action fill. No purple neon, no glow shadows, no pure black;
+   · layout — grid-first, label-above-input field stacks, 60ch measure on
+     hint copy, hairline dividers between peer sections, ONE elevated glass
+     surface where elevation communicates hierarchy (the system-level
+     patcher). No equal-card rows, no overlapping layers;
+   · motion — tactile micro-feedback only: one-shot transform / colour
+     transitions (≤0.16s, spring-tuned ease) on hover and press, transform
+     and opacity only. No keyframe loops, nothing animating width/height —
+     in line with the plugin's performance rules. */
 [data-lg-settings] {
+  --lg-set-font: "Geist", "Outfit", "Segoe UI Variable Display", "Segoe UI", "PingFang SC", "Microsoft YaHei UI", sans-serif;
+  --lg-set-mono: "JetBrains Mono", "Geist Mono", "Cascadia Mono", "Consolas", "SF Mono", monospace;
+  --lg-set-ease: cubic-bezier(0.34, 1.3, 0.64, 1);
   display: grid;
-  gap: 12px;
-  padding: 4px 2px;
+  gap: 0;
+  padding: 2px 4px 12px;
+  font-family: var(--lg-set-font);
 }
 
 [data-lg-settings] .lg-tune-head {
   display: grid;
-  gap: 4px;
+  gap: 10px;
+  padding: 6px 2px 24px;
+}
+
+[data-lg-settings] .lg-tune-headline {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
 }
 
 [data-lg-settings] .lg-tune-title {
   color: var(--dsw-alias-label-primary);
-  font-size: 15px;
-  font-weight: 600;
+  font-family: var(--lg-set-font);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.15;
+}
+
+[data-lg-settings] .lg-tune-version {
+  padding: 2px 9px;
+  border: 1px solid var(--lg-rim);
+  border-radius: calc(8px * var(--lg-tune-radius));
+  background: var(--lg-set-surface);
+  color: var(--dsw-alias-label-tertiary);
+  font-family: var(--lg-set-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
 }
 
 [data-lg-settings] .lg-tune-desc {
   color: var(--dsw-alias-label-secondary);
-  font-size: 12px;
-  line-height: 1.5;
+  font-size: 12.5px;
+  line-height: 1.65;
+  max-width: 60ch;
 }
 
 [data-lg-settings] .lg-tune-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 8px 16px;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 18px 30px;
 }
 
+/* Field stack (label above input, value readout on the label line). */
 [data-lg-settings] .lg-tune-row {
   display: grid;
-  grid-template-columns: 84px 1fr 44px;
-  align-items: center;
   gap: 8px;
+  min-width: 0;
+}
+
+[data-lg-settings] .lg-tune-row-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 [data-lg-settings] .lg-tune-label {
   color: var(--dsw-alias-label-primary-dimmed);
-  font-size: 12px;
+  font-family: var(--lg-set-font);
+  font-size: 12.5px;
+  font-weight: 550;
 }
 
 [data-lg-settings] .lg-tune-value {
-  color: var(--dsw-alias-label-tertiary);
-  font-size: 11px;
+  color: var(--dsw-alias-label-secondary);
+  font-family: var(--lg-set-mono);
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
+/* Sliders: hairline track, single-accent fill (--pct is written per row),
+   round accent thumb with a specular highlight — flat, no glow. */
 [data-lg-settings] input[type="range"] {
   width: 100%;
-  accent-color: var(--dsw-alias-state-business-primary);
-}
-
-[data-lg-settings] .lg-tune-reset {
-  justify-self: start;
-  padding: 4px 12px;
-  border-radius: calc(8px * var(--lg-tune-radius));
-  border: 1px solid var(--lg-rim);
-  background: var(--lg-badge-bg);
-  color: var(--dsw-alias-label-secondary);
-  font-size: 12px;
+  height: 18px;
+  margin: 0;
+  appearance: none;
+  background: transparent;
   cursor: pointer;
 }
 
-[data-lg-settings] .lg-tune-reset:hover {
-  background: var(--lg-hover-strong);
+[data-lg-settings] input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: calc(4px * var(--lg-tune-radius));
+  background: linear-gradient(
+    to right,
+    var(--lg-set-accent) 0 var(--pct, 50%),
+    var(--lg-set-track) var(--pct, 50%) 100%
+  );
 }
 
-[data-lg-settings] .lg-tune-toggle {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  align-items: center;
-  gap: 8px;
+[data-lg-settings] input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--lg-set-accent);
+  box-shadow: inset 0 1px 0 var(--lg-set-thumb-hi);
+  transition: transform 0.13s var(--lg-set-ease);
 }
 
-[data-lg-settings] .lg-tune-toggle input[type="checkbox"] {
-  justify-self: start;
-  accent-color: var(--dsw-alias-state-business-primary);
+[data-lg-settings] input[type="range"]:active::-webkit-slider-thumb {
+  transform: scale(0.9);
+}
+
+[data-lg-settings] input[type="range"]::-moz-range-track {
+  height: 4px;
+  border-radius: calc(4px * var(--lg-tune-radius));
+  background: linear-gradient(
+    to right,
+    var(--lg-set-accent) 0 var(--pct, 50%),
+    var(--lg-set-track) var(--pct, 50%) 100%
+  );
+}
+
+[data-lg-settings] input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--lg-set-accent);
+  box-shadow: inset 0 1px 0 var(--lg-set-thumb-hi);
+  transition: transform 0.13s var(--lg-set-ease);
 }
 
 [data-lg-settings] .lg-tune-hint {
-  grid-column: 1 / -1;
   color: var(--dsw-alias-label-tertiary);
-  font-size: 11px;
-  line-height: 1.5;
+  font-size: 11.5px;
+  line-height: 1.65;
+  max-width: 60ch;
+}
+
+/* Toggle rows: label left, switch right, helper text below. The switch is a
+   flat pill with a tactile knob slide (transform only). */
+[data-lg-settings] .lg-tune-toggle {
+  display: grid;
+  gap: 8px;
+}
+
+[data-lg-settings] .lg-tune-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+[data-lg-settings] input[type="checkbox"].lg-switch {
+  position: relative;
+  box-sizing: border-box;
+  appearance: none;
+  flex: none;
+  width: 40px;
+  height: 22px;
+  margin: 0;
+  border: 1px solid var(--lg-rim);
+  border-radius: calc(11px * var(--lg-tune-radius));
+  background: var(--lg-set-track);
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+[data-lg-settings] input[type="checkbox"].lg-switch:hover {
+  border-color: var(--lg-set-accent-line);
+}
+
+[data-lg-settings] input[type="checkbox"].lg-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--lg-set-knob);
+  box-shadow: var(--lg-set-knob-shadow);
+  transition: transform 0.16s var(--lg-set-ease);
+}
+
+[data-lg-settings] input[type="checkbox"].lg-switch:checked {
+  background: var(--lg-set-accent);
+  border-color: transparent;
+}
+
+[data-lg-settings] input[type="checkbox"].lg-switch:checked::after {
+  transform: translateX(18px);
 }
 
 /* ------------- style buttons (样式按钮) + collapsible detail cards -------- */
 /* Default view keeps only the 主题配色 style row visible; the 窗口透明度 and
-   背景叠层 cards collapse behind their 「详细设置」 buttons. */
+   背景叠层 cards collapse behind their 「详细设置」 buttons. The chips are a
+   segmented control: one bordered container, pressed = the quiet accent step
+   (the loud accent fill is reserved for the page's single primary action). */
 [data-lg-settings] .lg-style {
-  display: flex;
+  display: inline-flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 2px;
+  margin-left: auto;
+  padding: 3px;
+  border: 1px solid var(--lg-rim);
+  border-radius: calc(11px * var(--lg-tune-radius));
+  background: var(--lg-set-surface);
 }
 
 [data-lg-settings] .lg-style-chip {
-  padding: 4px 14px;
+  min-height: 28px;
+  padding: 5px 14px;
+  border: 1px solid transparent;
   border-radius: calc(8px * var(--lg-tune-radius));
-  border: 1px solid var(--lg-rim);
-  background: var(--lg-badge-bg);
+  background: transparent;
   color: var(--dsw-alias-label-secondary);
+  font-family: var(--lg-set-font);
   font-size: 12px;
+  font-weight: 550;
   cursor: pointer;
+  transition: transform 0.13s var(--lg-set-ease), background-color 0.13s ease, color 0.13s ease, border-color 0.13s ease;
 }
 
-[data-lg-settings] .lg-style-chip:hover:not(:disabled) {
-  background: var(--lg-hover-strong);
+[data-lg-settings] .lg-style-chip:hover:not(:disabled):not([aria-pressed="true"]) {
+  background: var(--lg-hover);
+  color: var(--dsw-alias-label-primary);
+}
+
+[data-lg-settings] .lg-style-chip:active:not(:disabled) {
+  transform: scale(0.97);
 }
 
 [data-lg-settings] .lg-style-chip[aria-pressed="true"] {
-  border-color: var(--dsw-alias-state-business-primary);
-  background: var(--lg-selected);
-  color: var(--dsw-alias-label-primary);
+  background: var(--lg-set-accent-soft);
+  border-color: var(--lg-set-accent-line);
+  color: var(--lg-set-accent-text);
 }
 
 [data-lg-settings] .lg-style-chip:disabled {
@@ -888,10 +1106,55 @@ body:not([data-ds-dark-theme]) ::-webkit-scrollbar-thumb:hover {
   cursor: default;
 }
 
+[data-lg-settings] .lg-details-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  padding: 5px 12px;
+  border: 1px solid var(--lg-rim);
+  border-radius: calc(8px * var(--lg-tune-radius));
+  background: var(--lg-set-surface);
+  color: var(--dsw-alias-label-secondary);
+  font-family: var(--lg-set-font);
+  font-size: 12px;
+  font-weight: 550;
+  cursor: pointer;
+  transition: transform 0.13s var(--lg-set-ease), background-color 0.13s ease, color 0.13s ease;
+}
+
+[data-lg-settings] .lg-details-btn:hover {
+  background: var(--lg-hover-strong);
+  color: var(--dsw-alias-label-primary);
+  transform: translateY(-1px);
+}
+
+[data-lg-settings] .lg-details-btn:active {
+  transform: scale(0.97);
+}
+
+/* State caret: static geometry, one rotate on expand (no bouncing). */
+[data-lg-settings] .lg-details-btn::after {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg) translateY(-1px);
+  transition: transform 0.16s var(--lg-set-ease);
+}
+
+[data-lg-settings] .lg-details-btn[aria-expanded="true"]::after {
+  transform: rotate(225deg) translate(-1px, -1px);
+}
+
+/* Sections: peer sections sit on hairline dividers (the dense-layout
+   alternative to carding everything); the system-level patcher below is the
+   one elevated surface. */
 [data-lg-settings] .lg-card {
   display: grid;
-  gap: 8px;
-  padding-top: 10px;
+  gap: 14px;
+  padding: 22px 2px 26px;
   border-top: 1px solid var(--lg-hairline);
 }
 
@@ -899,97 +1162,223 @@ body:not([data-ds-dark-theme]) ::-webkit-scrollbar-thumb:hover {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  gap: 10px 14px;
+}
+
+[data-lg-settings] .lg-card-heading {
+  display: flex;
+  align-items: baseline;
   gap: 10px;
+  min-width: 0;
+}
+
+[data-lg-settings] .lg-card-index {
+  color: var(--dsw-alias-label-tertiary);
+  font-family: var(--lg-set-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  font-variant-numeric: tabular-nums;
 }
 
 [data-lg-settings] .lg-card-title {
   color: var(--dsw-alias-label-primary);
+  font-family: var(--lg-set-font);
   font-size: 15px;
-  font-weight: 600;
-}
-
-[data-lg-settings] .lg-details-btn {
-  margin-left: auto;
-  padding: 4px 12px;
-  border-radius: calc(8px * var(--lg-tune-radius));
-  border: 1px solid var(--lg-rim);
-  background: var(--lg-badge-bg);
-  color: var(--dsw-alias-label-secondary);
-  font-size: 12px;
-  cursor: pointer;
-}
-
-[data-lg-settings] .lg-details-btn:hover {
-  background: var(--lg-hover-strong);
+  font-weight: 650;
+  letter-spacing: -0.01em;
 }
 
 [data-lg-settings] .lg-card-body {
   display: grid;
-  gap: 10px;
+  gap: 20px;
 }
 
 /* ------------------- window background layer (叠背景) ------------------- */
+/* RGBA is data: mono inputs, a live swatch of the typed layer, and the
+   resolved value printed as metadata. */
 [data-lg-settings] .lg-bg {
   display: grid;
-  gap: 8px;
+  gap: 12px;
 }
 
 [data-lg-settings] .lg-bg-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+}
+
+[data-lg-settings] .lg-bg-swatch {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--lg-rim);
+  border-radius: calc(8px * var(--lg-tune-radius));
 }
 
 [data-lg-settings] .lg-bg-row label {
-  color: var(--dsw-alias-label-primary-dimmed);
-  font-size: 12px;
+  color: var(--dsw-alias-label-tertiary);
+  font-family: var(--lg-set-mono);
+  font-size: 11px;
+  font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
 
 [data-lg-settings] .lg-bg-row input[type="number"] {
-  width: 58px;
-  padding: 3px 6px;
-  border-radius: calc(8px * var(--lg-tune-radius));
+  box-sizing: border-box;
+  width: 60px;
+  height: 30px;
+  padding: 0 8px;
   border: 1px solid var(--lg-hairline);
-  background: var(--lg-badge-bg);
+  border-radius: calc(8px * var(--lg-tune-radius));
+  background: var(--lg-set-surface);
   color: var(--dsw-alias-label-primary);
+  font-family: var(--lg-set-mono);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
+  appearance: textfield;
+}
+
+[data-lg-settings] .lg-bg-row input[type="number"]::-webkit-inner-spin-button,
+[data-lg-settings] .lg-bg-row input[type="number"]::-webkit-outer-spin-button {
+  appearance: none;
 }
 
 [data-lg-settings] .lg-bg-row input[type="range"] {
   flex: 1;
-  min-width: 140px;
+  min-width: 130px;
+  max-width: 260px;
+}
+
+[data-lg-settings] .lg-bg-preview {
+  color: var(--dsw-alias-label-secondary);
+  font-family: var(--lg-set-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
 }
 
 /* -------------------- window-glass patch (host actions) ------------------ */
-[data-lg-settings] .lg-patch {
-  display: grid;
-  gap: 6px;
-  padding-top: 10px;
-  border-top: 1px solid var(--lg-hairline);
+/* The one elevated surface on the page: it writes to the host install, so
+   elevation here communicates hierarchy (the only card that earns a fill,
+   a whisper border and a tinted diffused shadow). */
+[data-lg-settings] .lg-patch-card {
+  margin-top: 10px;
+  padding: 22px 24px 24px;
+  border: 1px solid var(--lg-rim);
+  border-top: 1px solid var(--lg-rim);
+  border-radius: calc(16px * var(--lg-tune-radius));
+  background: var(--lg-set-surface);
+  box-shadow: var(--lg-set-card-shadow);
+}
+
+[data-lg-settings] .lg-patch-card .lg-tune-desc {
+  white-space: pre-line;
 }
 
 [data-lg-settings] .lg-patch-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   color: var(--dsw-alias-label-secondary);
   font-size: 12px;
   line-height: 1.7;
   font-variant-numeric: tabular-nums;
 }
 
+/* State dot: static colour coding only (no pulse loops). */
+[data-lg-settings] .lg-patch-status::before {
+  content: "";
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--dsw-alias-label-tertiary);
+}
+
+[data-lg-settings] .lg-patch-status[data-state="patched"]::before {
+  background: var(--lg-set-accent);
+}
+
+[data-lg-settings] .lg-patch-status[data-state="unknown"]::before {
+  background: var(--lg-set-danger);
+}
+
 [data-lg-settings] .lg-patch-actions {
   display: flex;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
-[data-lg-settings] .lg-patch-actions button:disabled {
+/* Buttons: flat, no outer glow. Primary = the page's ONE loud accent fill;
+   secondary = ghost/outline. Hover lifts 1px, press pushes in — tactile. */
+[data-lg-settings] .lg-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 18px;
+  border: 1px solid transparent;
+  border-radius: calc(10px * var(--lg-tune-radius));
+  font-family: var(--lg-set-font);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition: transform 0.13s var(--lg-set-ease), background-color 0.13s ease, border-color 0.13s ease, color 0.13s ease;
+}
+
+[data-lg-settings] .lg-btn-primary {
+  background: var(--lg-set-accent);
+  color: var(--lg-set-accent-ink);
+}
+
+[data-lg-settings] .lg-btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+[data-lg-settings] .lg-btn-primary:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+[data-lg-settings] .lg-btn-ghost {
+  border-color: var(--lg-rim);
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+}
+
+[data-lg-settings] .lg-btn-ghost:hover:not(:disabled) {
+  background: var(--lg-hover);
+  border-color: var(--lg-set-accent-line);
+  color: var(--dsw-alias-label-primary);
+  transform: translateY(-1px);
+}
+
+[data-lg-settings] .lg-btn-ghost:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+[data-lg-settings] .lg-btn:disabled {
   opacity: 0.5;
   cursor: default;
+  transform: none;
 }
 
+/* Inline result note: contextual, left-ruled; errors read in Deep Rose. */
 [data-lg-settings] .lg-patch-msg {
+  padding-left: 12px;
+  border-left: 2px solid var(--lg-rim);
   color: var(--dsw-alias-label-tertiary);
-  font-size: 11px;
-  line-height: 1.5;
+  font-size: 11.5px;
+  line-height: 1.65;
+}
+
+[data-lg-settings] .lg-patch-msg[data-tone="ok"] {
+  border-left-color: var(--lg-set-accent-line);
+}
+
+[data-lg-settings] .lg-patch-msg[data-tone="error"] {
+  border-left-color: var(--lg-set-danger);
+  color: var(--lg-set-danger);
 }
